@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Socket.io Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .container {
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    #status-bar {
+      background-color: #f8f8f8;
+      padding: 10px;
+      margin-bottom: 20px;
+      border-radius: 5px;
+    }
+    
+    #status {
+      font-weight: bold;
+    }
+    
+    #status.connected {
+      color: green;
+    }
+    
+    #status.disconnected {
+      color: red;
+    }
+    
+    #status.connecting {
+      color: orange;
+    }
+    
+    #messages {
+      height: 200px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      padding: 10px;
+      background-color: #f9f9f9;
+    }
+    
+    input, button {
+      padding: 8px;
+      margin-right: 5px;
+    }
+    
+    button {
+      cursor: pointer;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 3px;
+    }
+    
+    button:hover {
+      background-color: #45a049;
+    }
+    
+    .message {
+      margin-bottom: 5px;
+      padding: 5px;
+      border-radius: 3px;
+    }
+    
+    .server {
+      background-color: #e6f7ff;
+    }
+    
+    .client {
+      background-color: #f0f0f0;
+    }
+    
+    .system {
+      color: #666;
+      font-style: italic;
+    }
+    
+    .diagnostic-container {
+      margin-top: 20px;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    
+    .diagnostic-item {
+      margin-bottom: 5px;
+    }
+    
+    .latency {
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>Socket.io Connection Test</h1>
+  
+  <div id="status-bar">
+    Status: <span id="status" class="disconnected">Disconnected</span>
+    <span id="transport"></span>
+    <span id="client-count"></span>
+  </div>
+  
+  <div class="container">
+    <h2>Connection Settings</h2>
+    <div>
+      <label for="transport-select">Preferred Transport:</label>
+      <select id="transport-select">
+        <option value="websocket,polling">WebSocket with Polling fallback</option>
+        <option value="polling,websocket">Polling with WebSocket fallback</option>
+        <option value="websocket">WebSocket only</option>
+        <option value="polling">Polling only</option>
+      </select>
+      <button id="connect-btn">Connect</button>
+      <button id="disconnect-btn" disabled>Disconnect</button>
+    </div>
+  </div>
+  
+  <div class="container">
+    <h2>Messages</h2>
+    <div id="messages"></div>
+    <div style="margin-top: 10px;">
+      <input type="text" id="message-input" placeholder="Type a message..." disabled>
+      <button id="send-btn" disabled>Send</button>
+      <button id="ping-btn" disabled>Ping</button>
+    </div>
+  </div>
+  
+  <div class="diagnostic-container">
+    <h2>Diagnostics</h2>
+    <div id="diagnostics">
+      <div class="diagnostic-item">Socket ID: <span id="socket-id">Not connected</span></div>
+      <div class="diagnostic-item">Transport: <span id="transport-type">N/A</span></div>
+      <div class="diagnostic-item">Reconnection attempts: <span id="reconnect-attempts">0</span></div>
+      <div class="diagnostic-item">Ping latency: <span id="ping-latency">N/A</span></div>
+    </div>
+  </div>
+  
+  <!-- Load Socket.io client from CDN -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  
+  <script>
+    // DOM Elements
+    const statusEl = document.getElementById('status');
+    const transportEl = document.getElementById('transport');
+    const clientCountEl = document.getElementById('client-count');
+    const messagesEl = document.getElementById('messages');
+    const messageInput = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    const pingBtn = document.getElementById('ping-btn');
+    const connectBtn = document.getElementById('connect-btn');
+    const disconnectBtn = document.getElementById('disconnect-btn');
+    const transportSelect = document.getElementById('transport-select');
+    
+    // Diagnostic elements
+    const socketIdEl = document.getElementById('socket-id');
+    const transportTypeEl = document.getElementById('transport-type');
+    const reconnectAttemptsEl = document.getElementById('reconnect-attempts');
+    const pingLatencyEl = document.getElementById('ping-latency');
+    
+    // Socket.io instance
+    let socket = null;
+    let reconnectAttempts = 0;
+    
+    // Add message to the message box
+    function addMessage(text, type = 'system') {
+      const messageEl = document.createElement('div');
+      messageEl.classList.add('message', type);
+      messageEl.textContent = text;
+      messagesEl.appendChild(messageEl);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+    
+    // Update UI state based on connection status
+    function updateUIState(isConnected) {
+      if (isConnected) {
+        statusEl.textContent = 'Connected';
+        statusEl.className = 'connected';
+        messageInput.disabled = false;
+        sendBtn.disabled = false;
+        pingBtn.disabled = false;
+        connectBtn.disabled = true;
+        disconnectBtn.disabled = false;
+        transportSelect.disabled = true;
+      } else {
+        statusEl.textContent = 'Disconnected';
+        statusEl.className = 'disconnected';
+        messageInput.disabled = true;
+        sendBtn.disabled = true;
+        pingBtn.disabled = true;
+        connectBtn.disabled = false;
+        disconnectBtn.disabled = true;
+        transportSelect.disabled = false;
+        socketIdEl.textContent = 'Not connected';
+        transportTypeEl.textContent = 'N/A';
+        clientCountEl.textContent = '';
+        transportEl.textContent = '';
+      }
+    }
+    
+    // Initialize connection
+    function initSocket() {
+      // If a socket already exists, disconnect it
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+      }
+      
+      // Update UI
+      statusEl.textContent = 'Connecting...';
+      statusEl.className = 'connecting';
+      
+      // Get selected transports
+      const transports = transportSelect.value.split(',');
+      
+      // Determine the server URL dynamically
+      const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+      const hostname = window.location.hostname;
+      const port = window.location.port ? `:${window.location.port}` : '';
+      const serverUrl = `${protocol}//${hostname}${port}`;
+      
+      addMessage(`Connecting to ${serverUrl} with transports: ${transports.join(', ')}`);
+      
+      // Configure Socket.io
+      const options = {
+        transports: transports,
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000
+      };
+      
+      // Create socket connection
+      socket = io(serverUrl, options);
+      
+      // Connection event handlers
+      socket.on('connect', () => {
+        console.log('Connected to server!');
+        updateUIState(true);
+        addMessage('Connected to server!');
+        socketIdEl.textContent = socket.id;
+        transportTypeEl.textContent = socket.io.engine.transport.name;
+        transportEl.textContent = ` (using ${socket.io.engine.transport.name})`;
+        
+        // Reset reconnect counter on successful connection
+        reconnectAttempts = 0;
+        reconnectAttemptsEl.textContent = reconnectAttempts;
+      });
+      
+      socket.on('disconnect', (reason) => {
+        console.log('Disconnected from server:', reason);
+        updateUIState(false);
+        addMessage(`Disconnected: ${reason}`);
+      });
+      
+      socket.on('connect_error', (error) => {
+        console.error('Connection error:', error);
+        addMessage(`Connection error: ${error.message}`, 'system');
+      });
+      
+      socket.io.on('reconnect_attempt', (attempt) => {
+        console.log(`Reconnection attempt #${attempt}`);
+        reconnectAttempts = attempt;
+        reconnectAttemptsEl.textContent = attempt;
+        statusEl.textContent = `Reconnecting (${attempt})...`;
+        addMessage(`Reconnection attempt #${attempt}`);
+      });
+      
+      socket.io.on('reconnect', (attempt) => {
+        console.log(`Reconnected after ${attempt} attempts`);
+        addMessage(`Reconnected after ${attempt} attempts`);
+      });
+      
+      socket.io.on('reconnect_error', (error) => {
+        console.error('Reconnection error:', error);
+        addMessage(`Reconnection error: ${error.message}`);
+      });
+      
+      socket.io.on('reconnect_failed', () => {
+        console.error('Failed to reconnect');
+        addMessage('Failed to reconnect after multiple attempts');
+      });
+      
+      // Monitor transport changes
+      socket.on('upgrade', (transport) => {
+        console.log(`Transport upgraded to ${transport}`);
+        transportTypeEl.textContent = transport;
+        transportEl.textContent = ` (using ${transport})`;
+        addMessage(`Transport upgraded to ${transport}`);
+      });
+      
+      // Handle server messages
+      socket.on('welcome', (data) => {
+        console.log('Welcome message:', data);
+        addMessage(`Server: ${data.message}`, 'server');
+      });
+      
+      socket.on('clientCount', (data) => {
+        console.log('Client count:', data);
+        clientCountEl.textContent = ` - ${data.count} client(s) connected`;
+      });
+      
+      socket.on('echo', (data) => {
+        console.log('Echo received:', data);
+        addMessage(`Server echo: ${data.text} (${data.timestamp})`, 'server');
+      });
+      
+      socket.on('pong', (data) => {
+        const latency = Date.now() - data.serverTime;
+        console.log('Pong received, latency:', latency, 'ms');
+        pingLatencyEl.textContent = `${latency} ms`;
+        addMessage(`Ping: ${latency} ms`, 'system');
+      });
+    }
+    
+    // Event listeners
+    connectBtn.addEventListener('click', () => {
+      initSocket();
+    });
+    
+    disconnectBtn.addEventListener('click', () => {
+      if (socket) {
+        socket.disconnect();
+      }
+    });
+    
+    sendBtn.addEventListener('click', () => {
+      const message = messageInput.value.trim();
+      if (message && socket) {
+        socket.emit('message', { text: message });
+        addMessage(`You: ${message}`, 'client');
+        messageInput.value = '';
+      }
+    });
+    
+    messageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        sendBtn.click();
+      }
+    });
+    
+    pingBtn.addEventListener('click', () => {
+      if (socket && socket.connected) {
+        const startTime = Date.now();
+        socket.emit('ping', (data) => {
+          const latency = Date.now() - startTime;
+          console.log('Ping response:', data, 'Latency:', latency, 'ms');
+          pingLatencyEl.textContent = `${latency} ms`;
+          addMessage(`Ping: ${latency} ms (callback)`, 'system');
+        });
+      }
+    });
+    
+    // Initial UI state
+    updateUIState(false);
+  </script>
+</body>
+</html>

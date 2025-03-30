@@ -1,0 +1,43 @@
+I'm building a multiplayer card game and already have a high-level architecture design and some sample code. I'd like to implement the core backend components based on the attached architecture.
+
+Here are my requirements:
+1. Server: Express.js + Socket.io for real-time multiplayer
+2. Game mechanics:
+   - 5 distinct card types/decks (color-coded)
+   - Players draw 3 cards of their assigned type at round start
+   - Each player contributes ONE card (their assigned type for the round)
+   - Card assignments rotate each round
+   - If fewer than 5 players, AI bots fill missing roles
+   - Combined cards create a story scenario
+3. Game flow:
+   - Players join game room with unique code
+   - System assigns card types and deals initial hands
+   - Players select one card from their hand
+   - System assembles story from all selected cards
+   - All players write "mock-serious moral" based on the story
+   - Use Anthropic API to generate AI player morals
+   - Players vote on best moral
+   - Winner gets points
+   - New round begins with rotated card assignments
+
+I already have some sample card decks (attached).
+
+And I have prompt instructions for the AI to generate morals (attached).
+
+Please implement the core backend components:
+1. Set up the Express.js server with Socket.io integration
+2. Create the game state manager to handle:
+   - Game creation and room management
+   - Player joining/leaving
+   - Card assignment and rotation between rounds
+   - Round progression logic
+
+Include proper error handling and logging. Here's my preferred structure for the implementation:
+- server.js: Main Express and Socket.io setup
+- game-state-manager.js: Game state and logic
+- socket-handler.js: Socket.io event handlers skeleton
+- ai-service.js: Claude API integration skeleton
+
+As a starting point, here's a sample implementation of the game state manager (attached.)
+
+Please review this implementation, make any necessary improvements, and complete the remaining components to create a robust foundation for the game.

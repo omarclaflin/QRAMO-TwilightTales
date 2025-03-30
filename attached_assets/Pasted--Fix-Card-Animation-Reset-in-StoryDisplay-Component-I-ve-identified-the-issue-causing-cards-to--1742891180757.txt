@@ -1,0 +1,118 @@
+## Fix Card Animation Reset in StoryDisplay Component
+
+I've identified the issue causing cards to flip back over when other players submit their morals. It's in the `StoryDisplay` component in `story-display.tsx`.
+
+The problem is that the component completely resets its animation whenever it receives new props from a game state update. When another player submits a moral, the server broadcasts a game state update, causing the animation to restart.
+
+Make these changes to fix the issue:
+
+1. Add a ref to track if we've already animated this set of cards:
+```typescript
+// Add near your other state/refs (line ~35)
+const hasAnimatedRef = useRef(false);
+const cardIdsRef = useRef('');
+```
+
+2. Add a utility function to get a stable string representation of card IDs:
+```typescript
+// Add this helper function near the top of your component
+const getCardIdsString = (cardsArray: (Card | null)[]) => {
+  return cardsArray
+    .filter(c => c !== null)
+    .map(c => c!.id)
+    .sort()
+    .join(',');
+};
+```
+
+3. Modify the useEffect that handles animation (line ~149) to avoid resetting for the same cards:
+```typescript
+// Initialize the revealed state when cards change and auto-start animation
+useEffect(() => {
+  if (cards && cards.length > 0) {
+    // Generate a string of sorted card IDs to compare
+    const newCardIds = getCardIdsString(cards);
+    
+    // If we already animated for these exact cards, don't reset
+    if (hasAnimatedRef.current && newCardIds === cardIdsRef.current) {
+      console.log('[StoryDisplay] Animation already played for these cards, skipping reset');
+      return;
+    }
+    
+    // Store the new card IDs
+    cardIdsRef.current = newCardIds;
+    
+    // Log the cards we're working with
+    console.log('[StoryDisplay] Initializing with cards:', cards);
+    console.log('[StoryDisplay] Grouped cards:', groupedCards);
+    console.log('[StoryDisplay] Ordered cards for reveal:', orderedCards);
+    
+    // Reset when cards change and we haven't animated yet
+    console.log('[StoryDisplay] Resetting reveal state');
+    // Start with all cards hidden
+    setRevealedCards(new Array(cards.length).fill(false));
+    setAllRevealed(false);
+    setStoryRevealed(true); // Show story immediately
+    
+    // Automatically start the reveal animation after a short delay
+    const timer = setTimeout(() => {
+      console.log('[StoryDisplay] Auto-starting card reveal animation');
+      startRevealAnimation();
+      // Mark that we've animated this set of cards
+      hasAnimatedRef.current = true;
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  } else {
+    // If cards are removed, reset our animation tracking
+    hasAnimatedRef.current = false;
+    cardIdsRef.current = '';
+  }
+}, [cards, orderedCards, groupedCards]);
+```
+
+4. Add a reset function to the component that will be called when starting a new round:
+```typescript
+// Add this function to the component
+const resetAnimation = () => {
+  hasAnimatedRef.current = false;
+  cardIdsRef.current = '';
+  if (revealTimerRef.current) {
+    clearTimeout(revealTimerRef.current);
+    revealTimerRef.current = null;
+  }
+};
+
+// Export this so it can be called from the parent component
+StoryDisplay.resetAnimation = resetAnimation;
+```
+
+5. In your `GamePage` component, call the reset function when moving to a new round:
+```typescript
+// Add this to the handleNextRound function in GamePage.tsx
+const handleNextRound = () => {
+  setSelectedMoral(null);
+  // Reset story display animation state
+  if (storyDisplayRef.current && storyDisplayRef.current.resetAnimation) {
+    storyDisplayRef.current.resetAnimation();
+  }
+  nextRound();
+};
+
+// Add a ref to the StoryDisplay component in GamePage.tsx
+const storyDisplayRef = useRef(null);
+
+// Then use it in your JSX
+<StoryDisplay 
+  ref={storyDisplayRef}
+  story={gameState.round.story}
+  cards={getStoryCards()}
+/>
+```
+
+This solution ensures that:
+1. The card animation only runs once for a specific set of cards
+2. It won't restart when other players submit their morals
+3. It properly resets between rounds when you have a new set of cards
+
+Let me know if you have any questions about these changes.

@@ -1,0 +1,154 @@
+
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { socket } from '../services/socket';
+import { getCardType } from '@/lib/utils';
+
+const CardSelectionPhase = ({ gameId, gameState, player }) => {
+  const [selectedCardId, setSelectedCardId] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const [pendingPlayers, setPendingPlayers] = useState([]);
+
+  // Get current player's hand and card type
+  const currentType = player?.currentCardType || 'character';
+  const hand = player?.hand || [];
+
+  useEffect(() => {
+    setSelectedCardId(null);
+    setIsSubmitting(false);
+    setError(null);
+    
+    if (gameState && gameState.players) {
+      const pending = gameState.players.filter(p => !p.selectedCard);
+      setPendingPlayers(pending);
+    }
+  }, [gameState?.round?.number]);
+
+  useEffect(() => {
+    if (gameState && gameState.players) {
+      const pending = gameState.players.filter(p => !p.selectedCard);
+      setPendingPlayers(pending);
+    }
+  }, [gameState]);
+
+  const handleSelectCard = (cardId) => {
+    if (player.selectedCard) return;
+    if (isSubmitting) return;
+    setSelectedCardId(cardId);
+  };
+
+  const handleSubmitCard = () => {
+    if (!selectedCardId || isSubmitting) return;
+    
+    setIsSubmitting(true);
+    setError(null);
+    
+    socket.emit('select-card', { gameId, cardId: selectedCardId }, (response) => {
+      setIsSubmitting(false);
+      
+      if (!response.success) {
+        setError(response.error || 'Failed to submit card');
+        setSelectedCardId(null);
+      }
+    });
+  };
+
+  if (player.selectedCard) {
+    return (
+      <div className="flex flex-col items-center justify-center p-6">
+        <h2 className="text-2xl font-bold mb-6">Waiting for other players...</h2>
+        
+        <div className="w-full max-w-md">
+          <h3 className="text-lg font-semibold mb-2">Players pending:</h3>
+          {pendingPlayers.length === 0 ? (
+            <p className="text-green-600 font-medium">All players have made their selections!</p>
+          ) : (
+            <ul className="bg-gray-50 rounded-lg p-3">
+              {pendingPlayers.map(p => (
+                <li key={p.id} className="flex items-center py-1">
+                  <span className="font-medium">{p.name}</span>
+                  {p.isAI && <span className="ml-2 px-2 py-0.5 bg-gray-200 text-gray-700 text-xs rounded-full">AI</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  const typeIcon = {
+    'location': '🏙️',
+    'character': '👤',
+    'initialTwist': '🔄',
+    'escalation': '📈',
+    'finalTwist': '💥'
+  }[currentType] || '❓';
+
+  return (
+    <div className="flex flex-col items-center p-4">
+      <div className="mb-6 text-center">
+        <h2 className="text-2xl font-bold">Select Your Card</h2>
+        <p className="text-gray-600">
+          Choose one card from your hand to contribute to the story.
+        </p>
+      </div>
+      
+      {error && (
+        <div className="w-full max-w-2xl mb-4 p-3 bg-red-100 text-red-700 rounded-lg">
+          {error}
+        </div>
+      )}
+      
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-2xl mb-6">
+        {hand.map((card) => {
+          const normalizedType = getCardType(card.type);
+          return (
+            <motion.div
+              key={card.id}
+              className={`relative p-4 rounded-lg ${
+                selectedCardId === card.id 
+                  ? `card-type-${normalizedType} card-header-${normalizedType}`
+                  : 'border-2 border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+              }`}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => handleSelectCard(card.id)}
+            >
+              <div className="font-semibold mb-2 flex items-center justify-between">
+                <span className="flex items-center gap-1">
+                  {typeIcon} {normalizedType.charAt(0).toUpperCase() + normalizedType.slice(1)}
+                </span>
+                <span className="text-sm text-gray-500">#{card.id}</span>
+              </div>
+              <p className="text-gray-800">{card.text}</p>
+              
+              {selectedCardId === card.id && (
+                <div className="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path>
+                  </svg>
+                </div>
+              )}
+            </motion.div>
+          );
+        })}
+      </div>
+      
+      <button
+        className={`px-6 py-3 rounded-lg font-medium ${
+          selectedCardId 
+            ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+        }`}
+        disabled={!selectedCardId || isSubmitting}
+        onClick={handleSubmitCard}
+      >
+        {isSubmitting ? 'Submitting...' : 'Submit Card'}
+      </button>
+    </div>
+  );
+};
+
+export default CardSelectionPhase;

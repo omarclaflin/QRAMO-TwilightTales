@@ -1,0 +1,36 @@
+{
+  "storyGameCards": {
+    "characterCards": [
+      { "id": 1, "text": "Paranoid mailman" },
+      { "id": 2, "text": "Seductive grandmother" },
+      /* remaining character cards from 3-100 */
+    ],
+    "locationCards": [
+      { "id": 1, "text": "Suburban kitchen with buzzing lights" },
+      { "id": 2, "text": "Abandoned carnival at midnight" },
+      /* remaining location cards from 3-100 */
+    ],
+    "initialTwistCards": [
+      { "id": 1, "text": "Phone only connects to the same stranger" },
+      { "id": 2, "text": "Identical twins keep appearing everywhere" },
+      /* remaining twist cards from 3-100 */
+    ],
+    "escalationCards": [
+      { "id": 1, "text": "Entire neighborhood becomes identical" },
+      { "id": 2, "text": "Memory loss affects critical decisions" },
+      /* remaining escalation cards from 3-100 */
+    ],
+    "finalTwistCards": [
+      { "id": 1, "text": "Protagonist was dead all along" },
+      { "id": 2, "text": "Efforts to prevent disaster caused it" },
+      /* remaining final twist cards from 3-100 */
+    ],
+    "gameInfo": {
+      "title": "Twilight Tales",
+      "description": "A storytelling card game where players create bizarre narratives with escalating twists",
+      "playerCount": "1-5 players",
+      "ageRating": "16+",
+      "playTime": "30-60 minutes"
+    }
+  }
+}

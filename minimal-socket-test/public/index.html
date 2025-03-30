@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minimal Socket.io Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    #status {
+      padding: 10px;
+      margin-bottom: 20px;
+      border-radius: 5px;
+      font-weight: bold;
+    }
+    
+    .connected {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    
+    .disconnected {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    
+    #messages {
+      height: 300px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin-bottom: 20px;
+    }
+    
+    .message {
+      padding: 5px;
+      margin-bottom: 5px;
+    }
+    
+    .server {
+      background-color: #e9ecef;
+    }
+    
+    .client {
+      background-color: #f1f8ff;
+    }
+    
+    input, button {
+      padding: 8px;
+      margin-right: 5px;
+    }
+    
+    button {
+      cursor: pointer;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 3px;
+    }
+    
+    button:hover {
+      background-color: #0069d9;
+    }
+    
+    #connection-info {
+      margin-top: 20px;
+      border: 1px solid #ddd;
+      padding: 10px;
+      font-family: monospace;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Minimal Socket.io Test</h1>
+  
+  <div id="status" class="disconnected">Disconnected</div>
+  
+  <div id="messages"></div>
+  
+  <div>
+    <input type="text" id="message-input" placeholder="Type a message..." disabled>
+    <button id="send-btn" disabled>Send</button>
+  </div>
+  
+  <div id="connection-info">
+    <div>Socket ID: <span id="socket-id">Not connected</span></div>
+    <div>Transport: <span id="transport">N/A</span></div>
+    <div>Ping: <span id="ping">N/A</span></div>
+  </div>
+  
+  <!-- Load Socket.io client from CDN -->
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  
+  <script>
+    // DOM Elements
+    const statusEl = document.getElementById('status');
+    const messagesEl = document.getElementById('messages');
+    const messageInput = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    const socketIdEl = document.getElementById('socket-id');
+    const transportEl = document.getElementById('transport');
+    const pingEl = document.getElementById('ping');
+    
+    // Helper function to add messages to the message container
+    function addMessage(message, type = 'server') {
+      const messageEl = document.createElement('div');
+      messageEl.classList.add('message', type);
+      messageEl.textContent = message;
+      messagesEl.appendChild(messageEl);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+    
+    // Initialize the Socket.io connection with the simplest approach
+    function initSocket() {
+      // This should dynamically handle both local and Replit environments
+      const getServerUrl = () => {
+        const protocol = window.location.protocol;
+        const hostname = window.location.hostname;
+        const port = window.location.port || '';
+        return `${protocol}//${hostname}${port ? ':' + port : ''}`;
+      };
+      
+      const serverUrl = getServerUrl();
+      addMessage(`Connecting to: ${serverUrl}`);
+      
+      const socket = io(serverUrl, {
+        transports: ['websocket', 'polling'],
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000
+      });
+      
+      // Connection events
+      socket.on('connect', () => {
+        console.log('Connected to Socket.io server');
+        statusEl.textContent = 'Connected';
+        statusEl.className = 'connected';
+        socketIdEl.textContent = socket.id;
+        transportEl.textContent = socket.io.engine.transport.name;
+        
+        messageInput.disabled = false;
+        sendBtn.disabled = false;
+        
+        addMessage('Connected to server!');
+      });
+      
+      socket.on('disconnect', (reason) => {
+        console.log('Disconnected from server:', reason);
+        statusEl.textContent = 'Disconnected';
+        statusEl.className = 'disconnected';
+        
+        messageInput.disabled = true;
+        sendBtn.disabled = true;
+        
+        addMessage(`Disconnected: ${reason}`);
+      });
+      
+      socket.on('connect_error', (error) => {
+        console.error('Connection error:', error);
+        addMessage(`Connection error: ${error.message}`);
+      });
+      
+      // Server messages
+      socket.on('message', (data) => {
+        console.log('Message from server:', data);
+        addMessage(data.text);
+      });
+      
+      // Ping messages
+      socket.on('ping', (data) => {
+        const ping = Date.now() - new Date(data.time).getTime();
+        pingEl.textContent = `${ping}ms`;
+        addMessage(`Ping: ${ping}ms`);
+      });
+      
+      // Send messages
+      sendBtn.addEventListener('click', () => {
+        const text = messageInput.value.trim();
+        if (text) {
+          socket.emit('message', { text });
+          addMessage(`You: ${text}`, 'client');
+          messageInput.value = '';
+        }
+      });
+      
+      messageInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          sendBtn.click();
+        }
+      });
+      
+      return socket;
+    }
+    
+    // Initialize the connection
+    const socket = initSocket();
+  </script>
+</body>
+</html>

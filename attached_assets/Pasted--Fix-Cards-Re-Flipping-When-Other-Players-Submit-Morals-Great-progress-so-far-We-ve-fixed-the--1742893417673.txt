@@ -1,0 +1,127 @@
+## Fix Cards Re-Flipping When Other Players Submit Morals
+
+Great progress so far! We've fixed the infinite loop issue, but the cards are still flipping over again when another player submits their moral. This happens because the animation state isn't persisting across re-renders when the game state updates from the server.
+
+The solution is to lift the animation state up to the parent component (GamePage) to make it persist across StoryDisplay re-renders. Here's how:
+
+### 1. First, modify the GamePage component:
+
+```typescript
+// In GamePage.tsx, add this state near your other state variables:
+const [storyCardsRevealed, setStoryCardsRevealed] = useState(false);
+
+// Reset this state when moving to a new round
+const handleNextRound = () => {
+  setSelectedMoral(null);
+  setStoryCardsRevealed(false); // Reset the animation state for next round
+  nextRound();
+};
+
+// Then update how you render the StoryDisplay component:
+{gameState.round.status === roundStatus.STORYTELLING && (
+  <Card>
+    <CardHeader className="border-b p-4">
+      <h3 className="text-lg font-medium text-gray-900">The Story So Far...</h3>
+    </CardHeader>
+    
+    <CardContent className="p-6 space-y-4">
+      <StoryDisplay 
+        story={gameState.round.story}
+        cards={getStoryCards()}
+        initiallyRevealed={storyCardsRevealed}
+        onCardsRevealed={() => setStoryCardsRevealed(true)}
+      />
+      
+      {/* Rest of your code for moral input etc. */}
+    </CardContent>
+  </Card>
+)}
+```
+
+### 2. Now update the StoryDisplay component:
+
+```typescript
+// Update the props interface in story-display.tsx:
+interface StoryDisplayProps {
+  story: string;
+  cards?: (Card | null)[];
+  className?: string;
+  initiallyRevealed?: boolean; // Add this prop
+  onCardsRevealed?: () => void; // Add this prop
+}
+
+// Then update the component function signature:
+export function StoryDisplay({ 
+  story, 
+  cards, 
+  className,
+  initiallyRevealed = false,
+  onCardsRevealed 
+}: StoryDisplayProps) {
+  // Keep existing code...
+  
+  // Replace the first useEffect with this version:
+  useEffect(() => {
+    // If parent says cards are already revealed, show them all immediately
+    if (initiallyRevealed && cards && cards.length > 0) {
+      console.log('[StoryDisplay] Skipping animation - cards already revealed');
+      setRevealedCards(new Array(cards.length).fill(true));
+      setAllRevealed(true);
+      setStoryRevealed(true);
+      return;
+    }
+    
+    // Only run this effect once per component mount and if not already revealed
+    if (!initiallyRevealed && !initializedRef.current && cards && cards.length > 0) {
+      initializedRef.current = true;
+      console.log('[StoryDisplay] Initializing animation - first time');
+      
+      // Start with all cards hidden
+      setRevealedCards(new Array(cards.length).fill(false));
+      setAllRevealed(false);
+      setStoryRevealed(true);
+      
+      // Start animation after a short delay
+      const timer = setTimeout(() => {
+        console.log('[StoryDisplay] Starting card reveal animation');
+        startRevealAnimation();
+      }, 500);
+      
+      return () => {
+        clearTimeout(timer);
+      };
+    }
+  }, [cards, initiallyRevealed]);
+  
+  // Modify the startRevealAnimation function to notify parent when done:
+  const startRevealAnimation = () => {
+    // Keep existing code...
+    
+    // In the revealNextCard function, add this at the point where animation is complete:
+    if (currentIndex >= orderedCards.length) {
+      console.log('[StoryDisplay] All cards revealed, animation complete');
+      setIsRevealing(false);
+      setAllRevealed(true);
+      
+      // Notify parent that cards are revealed
+      if (onCardsRevealed) {
+        onCardsRevealed();
+      }
+      return;
+    }
+    
+    // Rest of revealNextCard function...
+  };
+  
+  // Rest of component...
+}
+```
+
+### Why This Works
+
+1. The parent component (GamePage) maintains a `storyCardsRevealed` state variable that persists across re-renders
+2. When StoryDisplay finishes its animation, it calls `onCardsRevealed` to update this state in the parent
+3. If the StoryDisplay gets re-rendered (like when another player submits a moral), it checks `initiallyRevealed` and shows all cards immediately without animation
+4. When moving to a new round, we reset the state in the parent component
+
+This solution ensures cards stay flipped over when other players take actions, but properly reset between rounds.

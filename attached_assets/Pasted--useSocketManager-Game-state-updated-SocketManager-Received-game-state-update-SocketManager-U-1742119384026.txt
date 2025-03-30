@@ -1,0 +1,67 @@
+[useSocketManager] Game state updated
+[SocketManager] Received game state update
+[SocketManager] Updating game state with new data
+[useSocketManager] Game state updated
+[GamePage] Retrieving story cards from game state: 
+Object {submissions: 5, players: 5, roundStatus: "storytelling"}
+[GamePage] All submissions: 
+(5) [{…}, {…}, {…}, {…}, {…}]
+[GamePage] Found card 47 for player sfda: "Dentist's chair with restraints"
+[GamePage] Found card 82 for player NeuralPulse: "Everyone repeatedly experiencing punishment loop"
+[GamePage] Found card 47 for player NeuralByte: "Jilted bride/groom"
+[GamePage] Found card 3 for player PixelUnit: "Houseplant responds to conversations"
+[GamePage] Found card 42 for player BinaryTron: "People forget they have families"
+[GamePage] Ordered story cards: 47(unknown) from player with assigned type location, 47(unknown) from player with assigned type character, 3(unknown) from player with assigned type initialTwist, 42(unknown) from player with assigned type escalation, 82(unknown) from player with assigned type finalTwist
+[StoryDisplay] Rendering with story and cards: 
+Object {storyLength: 212, cardsCount: 5, cards: "47(unknown), 47(unknown), 3(unknown), 42(unknown), 82(unknown)"}
+[StoryDisplay] Grouping cards by type: 
+(5) [{…}, {…}, {…}, {…}, {…}]
+[StoryDisplay] Found card types: 
+Array []
+[StoryDisplay] No type for card 47, using position-based fallback: "location"
+[StoryDisplay] No type for card 47, using position-based fallback: "character"
+[StoryDisplay] No type for card 3, using position-based fallback: "initialTwist"
+[StoryDisplay] No type for card 42, using position-based fallback: "escalation"
+[StoryDisplay] No type for card 82, using position-based fallback: "finalTwist"
+[StoryDisplay] Generating ordered cards from: 
+Object {location: Array(1), character: Array(1), initialTwist: Array(1), escalation: Array(1), finalTwist: Array(1)}
+[StoryDisplay] Result ordered cards: 
+(5) [{…}, {…}, {…}, {…}, {…}]
+Warning: Encountered two children with the same key, &#x60;47&#x60;. Keys should be unique so that components maintain their identity across updates. Non-unique keys may cause children to be duplicated and/or omitted — the behavior is unsupported and could change in a future version.
+    at div
+    at div
+    at div
+    at StoryDisplay (https://c9401511-74e6-4346-b3bb-523717760bc0-00-p3nzxsbdhqa.picard.replit.dev/src/components/story-display.tsx:31:32)
+    at div
+    at _c9 (https://c9401511-74e6-4346-b3bb-523717760bc0-00-p3nzxsbdhqa.picard.replit.dev/src/components/ui/card.tsx:114:12)
+    at div
+    at _c (https://c9401511-74e6-4346-b3bb-523717760bc0-00-p3nzxsbdhqa.picard.replit.dev/src/components/ui/card.tsx:20:11)
+    at div
+    at div
+    at GamePage (https://c9401511-74e6-4346-b3bb-523717760bc0-00-p3nzxsbdhqa.picard.replit.dev/src/pages/game.tsx:48:22)
+    at Route (https://c9401511-74e6-4346-b3bb-523717760bc0-00-p3nzxsbdhqa.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=b6e17200:323:16)
+    at Switch (https://c9401511-74e6-4346-b3bb-523717760bc0-00-p3nzxsbdhqa.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/wouter.js?v=b6e17200:379:17)
+    at Router
+    at main
+    at div
+    at QueryClientProvider (https://c9401511-74e6-4346-b3bb-523717760bc0-00-p3nzxsbdhqa.picard.replit.dev/@fs/home/runner/workspace/node_modules/.vite/deps/@tanstack_react-query.js?v=b6e17200:2805:3)
+    at App
+[StoryDisplay] Initializing with cards: 
+(5) [{…}, {…}, {…}, {…}, {…}]
+[StoryDisplay] Grouped cards: 
+Object {location: Array(1), character: Array(1), initialTwist: Array(1), escalation: Array(1), finalTwist: Array(1)}
+[StoryDisplay] Ordered cards for reveal: 
+(5) [{…}, {…}, {…}, {…}, {…}]
+[StoryDisplay] Resetting reveal state
+[GamePage] Retrieving story cards from game state: 
+Object {submissions: 5, players: 5, roundStatus: "storytelling"}
+[GamePage] All submissions: 
+(5) [{…}, {…}, {…}, {…}, {…}]
+[GamePage] Found card 47 for player sfda: "Dentist's chair with restraints"
+[GamePage] Found card 82 for player NeuralPulse: "Everyone repeatedly experiencing punishment loop"
+[GamePage] Found card 47 for player NeuralByte: "Jilted bride/groom"
+[GamePage] Found card 3 for player PixelUnit: "Houseplant responds to conversations"
+[GamePage] Found card 42 for player BinaryTron: "People forget they have families"
+[GamePage] Ordered story cards: 47(unknown) from player with assigned type location, 47(unknown) from player with assigned type character, 3(unknown) from player with assigned type initialTwist, 42(unknown) from player with assigned type escalation, 82(unknown) from player with assigned type finalTwist
+[StoryDisplay] Rendering with story and cards: 
+Object {storyLength: 212, cardsCount: 5, cards: "47(unknown), 47(unknown), 3(unknown), 42(unknown), 82(unknown)"}

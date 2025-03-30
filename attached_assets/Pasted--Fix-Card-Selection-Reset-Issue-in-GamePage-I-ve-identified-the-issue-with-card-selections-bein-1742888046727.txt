@@ -1,0 +1,116 @@
+## Fix Card Selection Reset Issue in GamePage
+
+I've identified the issue with card selections being reset when other players make selections. The problem is in the `GamePage` component - there's no local state to track card selections independent of server state.
+
+Make these changes to fix the issue:
+
+1. Add local state to track card selections in the GamePage component:
+```typescript
+// Near the top of your GamePage component where other state is declared
+const [localSelectedCardId, setLocalSelectedCardId] = useState<number | null>(null);
+```
+
+2. Modify the `handleCardSelect` function to use local state:
+```typescript
+const handleCardSelect = (cardId: number) => {
+  console.log(`[GamePage] Selecting card ${cardId} (temporary UI state)`);
+  // Update local state first
+  setLocalSelectedCardId(cardId);
+  // Then update through socket manager
+  selectCard(cardId);
+  // Toast notification
+  toast({
+    title: 'Card Selected',
+    description: `You have selected card #${cardId}. Click "Confirm Selection" to submit.`,
+    duration: 3000,
+  });
+};
+```
+
+3. Add a useEffect to handle game state updates properly:
+```typescript
+// Add this useEffect after the other useEffects
+useEffect(() => {
+  if (gameState && currentPlayer) {
+    // Only update local selection from server if:
+    // 1. We don't have a local selection yet, OR
+    // 2. Server has acknowledged our selection (they match)
+    if (localSelectedCardId === null || currentPlayer.selectedCard === localSelectedCardId) {
+      setLocalSelectedCardId(currentPlayer.selectedCard);
+    }
+  }
+}, [gameState, currentPlayer, localSelectedCardId]);
+```
+
+4. Update how you're rendering the CardGrid component to use localSelectedCardId:
+```tsx
+<CardGrid
+  cards={currentPlayer.hand.map(card => ({
+    ...card,
+    // Set the card type explicitly based on the player's assigned type
+    type: currentPlayer.currentCardType || 'unknown'
+  }))}
+  selectable={true}
+  onSelectCard={handleCardSelect}
+  selectedCardId={localSelectedCardId} // Use local state instead of server state
+  size="md"
+  className="my-6"
+  onCustomTextChange={(cardId, text) => {
+    // Custom card text update logic remains the same
+  }}
+/>
+```
+
+5. Update the Confirm Selection button condition to use localSelectedCardId:
+```tsx
+{currentPlayer && localSelectedCardId != null && (
+  <div className="mt-6 flex flex-col items-center">
+    <Button 
+      size="lg" 
+      variant="default"
+      className="bg-primary font-medium text-white py-5 px-6"
+      onClick={() => {
+        // Actually send the selection to the server
+        if (localSelectedCardId && gameState.gameId) {
+          // Find the selected card to check if it's custom
+          const selectedCard = currentPlayer.hand?.find(c => c.id === localSelectedCardId);
+          const customText = selectedCard?.isCustom ? selectedCard.text : undefined;
+          
+          console.log('[GamePage] Confirming card selection to server:', {
+            cardId: localSelectedCardId,
+            isCustom: !!selectedCard?.isCustom,
+            customText
+          });
+          
+          // Now actually submit the card to the server
+          confirmCardSelection(localSelectedCardId, customText)
+            .then(() => {
+              toast({
+                title: 'Card Confirmed',
+                description: `Your card has been submitted for the story`,
+                duration: 3000,
+              });
+            })
+            .catch((error: unknown) => {
+              console.error('[GamePage] Error confirming card:', error);
+              toast({
+                title: 'Error',
+                description: 'Failed to confirm card selection',
+                variant: 'destructive',
+              });
+            });
+        }
+      }}
+    >
+      Confirm Selection
+    </Button>
+    <p className="text-xs text-muted-foreground mt-2">
+      <strong>Important:</strong> Your card won't be submitted until you click this button.
+      You can change your selection until you confirm it. 
+      AI players will make their selections after you confirm yours.
+    </p>
+  </div>
+)}
+```
+
+This fix maintains a local card selection state that persists even when the server sends updates about other players' selections. The key is only synchronizing with the server state when appropriate (when we don't have a local selection or when the server has acknowledged our selection).

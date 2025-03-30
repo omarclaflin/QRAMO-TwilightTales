@@ -1,0 +1,56 @@
+Let's simplify our approach to fix the game progression issue. Instead of trying to track what changed, let's implement a reliable solution:
+
+1. Please update the generateAIMorals function with this specific implementation:
+   - Keep it simple - don't use delays or complex API handling
+   - Generate fixed AI morals immediately (no waiting)
+   - Use an array of pre-written funny morals for AI players
+   - Ensure the game state is updated and broadcast immediately after
+
+2. Here's a simplified implementation to use:
+```javascript
+async generateAIMorals(gameId) {
+  console.log(`[Server] Generating AI morals for game ${gameId}`);
+  const game = this.games.get(gameId);
+  
+  if (!game) {
+    console.error(`[Server] Game ${gameId} not found`);
+    return;
+  }
+  
+  // Funny pre-written morals to use
+  const funnyMorals = [
+    "The moral of the story is: Always check if your time-traveling device has a return policy.",
+    "The moral of the story is: Never trust a talking plant with your WiFi password.",
+    "The moral of the story is: Sometimes the best solution is to pretend nothing happened.",
+    "The moral of the story is: If plan A fails, remember there are 25 more letters in the alphabet.",
+    "The moral of the story is: Not all who wander are lost, but this one definitely was."
+  ];
+  
+  // Generate morals for AI players
+  for (const player of game.players) {
+    if (player.isAI && !player.submittedMoral) {
+      console.log(`[Server] Generating moral for AI player ${player.name}`);
+      // Select a random moral
+      const randomIndex = Math.floor(Math.random() * funnyMorals.length);
+      player.submittedMoral = funnyMorals[randomIndex];
+      
+      // Update submission
+      const submission = game.round.submissions.find(s => s.playerId === player.id);
+      if (submission) {
+        submission.moral = player.submittedMoral;
+      }
+      
+      console.log(`[Server] AI player ${player.name} submitted moral: ${player.submittedMoral}`);
+    }
+  }
+  
+  // Check if all players have submitted morals
+  if (game.players.every(p => p.submittedMoral)) {
+    console.log(`[Server] All players in game ${gameId} have submitted morals`);
+    // Move to voting phase
+    game.round.status = 'voting';
+    // Broadcast the updated game state
+    this.broadcast(gameId, { type: 'game-state-update', gameState: game });
+    console.log(`[Server] Game ${gameId} moved to voting phase`);
+  }
+}

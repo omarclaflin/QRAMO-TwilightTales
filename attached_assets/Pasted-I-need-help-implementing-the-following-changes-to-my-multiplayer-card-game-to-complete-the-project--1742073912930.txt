@@ -1,0 +1,38 @@
+I need help implementing the following changes to my multiplayer card game to complete the project:
+
+1. **Game Flow Completion**: Currently, the game stops at the player & scores screen after a round. Please implement:
+   - A "Next Round" button that appears after scores are displayed
+   - Logic to properly reset the game state for the next round
+   - Card assignment rotation between rounds as originally specified
+   - A clear "Game Over" state after the final round
+
+2. **AI Turn Animation**: Add randomized timing for AI turns:
+   - When AI players select cards, add a 1-3 second random delay before selection
+   - Add visual indicators showing which AI player is "thinking"
+   - Make sure the delay doesn't block human players from making their selections
+
+3. **AI Voting Preference**: Modify AI voting logic:
+   - Make AI players 2x more likely to vote for human player submissions
+   - Update the `simulateAIVote` function in the AI service
+   - Keep the randomness but weight the selection toward human players
+
+4. **Custom Card Creation**: Add an option for human players to create custom cards:
+   - 20% chance to offer a blank card option alongside their normal cards
+   - Add UI for entering custom card text
+   - Integrate custom cards into the story assembly logic
+   - Ensure custom cards work with the existing game flow
+
+5. **Card Header Styling**: Fix the card headers:
+   - Replace "?Unknown #[id]" with "QRAMO Classic" 
+   - Update the card component styling to show this title consistently
+   - Make sure the styling matches the game's overall aesthetic
+
+6. **Story Presentation Enhancement**: Create an animated story reveal:
+   - Display the story as colored cards instead of plain text
+   - Animate cards to flip one by one with a 2-second delay between each
+   - Use the format: "IN [location], A [Character], NOTICES [ACTION1], BUT THEN [ACTION2]. And its all because... [ACTION3]."
+   - Match card colors to their type (character, location, etc.)
+
+I've already fixed the Socket.io connection issues by implementing a singleton socket manager outside the React component lifecycle. The game is now playable, but these remaining features will complete the experience.
+
+Please implement these changes one at a time and let me check each implementation before moving to the next feature.

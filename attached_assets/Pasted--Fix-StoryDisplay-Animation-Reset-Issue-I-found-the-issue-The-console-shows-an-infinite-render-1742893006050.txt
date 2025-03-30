@@ -1,0 +1,92 @@
+## Fix StoryDisplay Animation Reset Issue
+
+I found the issue! The console shows an infinite render loop in the StoryDisplay component with this error:
+```
+Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect...
+```
+
+This is causing both the animation problems and the app instability. Here's how to fix it:
+
+1. Add a reference to track initialization at the top of your component:
+```typescript
+// Add this near your other state variables
+const initializedRef = useRef(false);
+```
+
+2. Replace the useEffect that manages animation with this simpler version:
+```typescript
+// Replace the current useEffect that runs the animation
+useEffect(() => {
+  // Only run this effect once per component mount
+  if (initializedRef.current) {
+    return;
+  }
+  
+  if (cards && cards.length > 0) {
+    initializedRef.current = true;
+    console.log('[StoryDisplay] Initializing animation - first time');
+    
+    // Start with all cards hidden
+    setRevealedCards(new Array(cards.length).fill(false));
+    setAllRevealed(false);
+    setStoryRevealed(true);
+    
+    // Start animation after a short delay
+    const timer = setTimeout(() => {
+      console.log('[StoryDisplay] Starting card reveal animation');
+      startRevealAnimation();
+    }, 500);
+    
+    return () => {
+      clearTimeout(timer);
+      // Only reset on unmount
+      initializedRef.current = false;
+    };
+  }
+}, [cards]); // Minimal dependencies
+```
+
+3. Add a separate effect to handle changes in card count (like between rounds):
+```typescript
+// Add a new useEffect that only handles changes to the number of cards
+useEffect(() => {
+  // Only run if we've already initialized but the number of cards changes
+  if (initializedRef.current && cards && revealedCards.length !== cards.length) {
+    console.log('[StoryDisplay] Card count changed, resetting animation state');
+    setRevealedCards(new Array(cards.length).fill(false));
+    setAllRevealed(false);
+    
+    // Start animation after a short delay
+    const timer = setTimeout(() => {
+      console.log('[StoryDisplay] Starting card reveal animation after count change');
+      startRevealAnimation();
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }
+}, [cards?.length, revealedCards.length]);
+```
+
+4. Add a reset function that can be called explicitly when needed:
+```typescript
+// Add this function to manually reset the animation
+const resetAnimation = () => {
+  console.log('[StoryDisplay] Manually resetting animation state');
+  initializedRef.current = false;
+  if (revealTimerRef.current) {
+    clearTimeout(revealTimerRef.current);
+    revealTimerRef.current = null;
+  }
+};
+
+// Expose this function on the component
+StoryDisplay.resetAnimation = resetAnimation;
+```
+
+The key insights:
+1. The original code runs the animation setup on every render because the dependencies change too frequently
+2. This simpler approach only runs the animation once when the component first gets cards
+3. It handles new rounds by checking for changes in the number of cards
+4. It avoids the infinite loop by using the initializedRef flag
+
+This solution fixes both the animation reset issue AND the infinite loop while keeping the code simple and maintainable.

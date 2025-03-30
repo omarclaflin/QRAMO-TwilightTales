@@ -1,0 +1,106 @@
+[useSocketManager] *** PHASE TRANSITION DETECTED *** 
+Object {transition: "selection -> results", roundChange: "No round change", detailedSubmissions: Array(5)}
+TSS: Counted history being pushed
+TSS: Caught history
+TSS: Checking if repeated 500 times for interval 1000 against data:  
+Object {lastTime: 1743303937898, lastCount: 2}
+[SocketManager] Received game state update
+[SocketManager] Updating game state with new data
+[useSocketManager] Game state updated: 
+Object {roundStatus: "selection", roundNumber: 2, previousStatus: undefined, previousRound: undefined, statusChanged: true, …}
+[useSocketManager] *** PHASE TRANSITION DETECTED *** 
+Object {transition: "none -> selection", roundChange: "Round 0 -> 2", detailedSubmissions: Array(0)}
+[useSocketManager] Game state updated: 
+Object {roundStatus: "selection", roundNumber: 2, previousStatus: "selection", previousRound: 1, statusChanged: false, …}
+[useSocketManager] *** PHASE TRANSITION DETECTED *** 
+Object {transition: "selection -> selection", roundChange: "Round 1 -> 2", detailedSubmissions: Array(0)}
+TSS: Counted history being pushed
+TSS: Caught history
+TSS: Checking if repeated 500 times for interval 1000 against data:  
+Object {lastTime: 1743303940874, lastCount: 1}
+[GamePage] Round status or number changed: 
+Object {roundStatus: "selection", roundNumber: 2, previousStatus: "_previous_round_status_", playerId: "ace785ca-db35-46c5-812d-feb8cdf19efd", cardsRevealed: true, …}
+[GamePage] New round started, resetting cards revealed state
+[GamePage] Selecting card 27 (temporary UI state)
+[useGameState] Selecting card 27 in game RUDNG1 (temporary UI update)
+[useSocketManager] Temporarily selecting card 27 in game RUDNG1 (UI only)
+[useSocketManager] Updating local game state for player ace785ca-db35-46c5-812d-feb8cdf19efd, setting selectedCard to 27
+[SocketManager] Manually updating game state for UI rendering
+[useSocketManager] Game state updated: 
+Object {roundStatus: "selection", roundNumber: 2, previousStatus: undefined, previousRound: undefined, statusChanged: true, …}
+[useSocketManager] *** PHASE TRANSITION DETECTED *** 
+Object {transition: "none -> selection", roundChange: "Round 0 -> 2", detailedSubmissions: Array(0)}
+[useSocketManager] Game state updated: 
+Object {roundStatus: "selection", roundNumber: 2, previousStatus: "selection", previousRound: 1, statusChanged: false, …}
+[useSocketManager] *** PHASE TRANSITION DETECTED *** 
+Object {transition: "selection -> selection", roundChange: "Round 1 -> 2", detailedSubmissions: Array(0)}
+[useSocketManager] Cleaning up game state listener
+[useSocketManager] Setting up game state listener
+[useSocketManager] Game state updated: 
+Object {roundStatus: "selection", roundNumber: 2, previousStatus: "selection", previousRound: 2, statusChanged: false, …}
+[useSocketManager] Not in card selection phase, clearing temporary selection
+[useGameState] Current player after selection: 
+Object {id: "ace785ca-db35-46c5-812d-feb8cdf19efd", name: "asfdasdf", score: 1, isHost: true, selectedCard: 27, …}
+[useSocketManager] Cleaning up game state listener
+[useSocketManager] Setting up game state listener
+[useSocketManager] Game state updated: 
+Object {roundStatus: "selection", roundNumber: 2, previousStatus: "selection", previousRound: 2, statusChanged: false, …}
+TSS: Counted history being pushed
+TSS: Caught history
+TSS: Checking if repeated 500 times for interval 1000 against data:  
+Object {lastTime: 1743303940874, lastCount: 2}
+[GamePage] Confirming card selection to server: 
+Object {cardId: 27, isCustom: false, customText: undefined}
+[useGameState] Confirming card selection: 27 in game RUDNG1
+[useSocketManager] CONFIRMING card selection 27 in game RUDNG1
+[useSocketManager] Selection confirmed by server, clearing temporary selection
+[useSocketManager] Confirm card selection response: 
+Object {success: true}
+[SocketManager] Received game state update
+[SocketManager] Updating game state with new data
+[useSocketManager] Game state updated: 
+Object {roundStatus: "selection", roundNumber: 2, previousStatus: undefined, previousRound: undefined, statusChanged: true, …}
+[useSocketManager] *** PHASE TRANSITION DETECTED *** 
+Object {transition: "none -> selection", roundChange: "Round 0 -> 2", detailedSubmissions: Array(0)}
+[useSocketManager] Game state updated: 
+Object {roundStatus: "selection", roundNumber: 2, previousStatus: "selection", previousRound: 2, statusChanged: false, …}
+TSS: Counted history being pushed
+TSS: Caught history
+TSS: Checking if repeated 500 times for interval 1000 against data:  
+Object {lastTime: 1743303943051, lastCount: 1}
+[SocketManager] Received game state update
+[SocketManager] Updating game state with new data
+[useSocketManager] Game state updated: 
+Object {roundStatus: "selection", roundNumber: 2, previousStatus: undefined, previousRound: undefined, statusChanged: true, …}
+[useSocketManager] *** PHASE TRANSITION DETECTED *** 
+Object {transition: "none -> selection", roundChange: "Round 0 -> 2", detailedSubmissions: Array(0)}
+[useSocketManager] Game state updated: 
+Object {roundStatus: "selection", roundNumber: 2, previousStatus: "selection", previousRound: 2, statusChanged: false, …}
+TSS: Counted history being pushed
+TSS: Caught history
+TSS: Checking if repeated 500 times for interval 1000 against data:  
+Object {lastTime: 1743303944262, lastCount: 1}
+[SocketManager] Received game state update
+[SocketManager] Updating game state with new data
+[useSocketManager] Game state updated: 
+Object {roundStatus: "selection", roundNumber: 2, previousStatus: undefined, previousRound: undefined, statusChanged: true, …}
+[useSocketManager] *** PHASE TRANSITION DETECTED *** 
+Object {transition: "none -> selection", roundChange: "Round 0 -> 2", detailedSubmissions: Array(0)}
+[useSocketManager] Game state updated: 
+Object {roundStatus: "selection", roundNumber: 2, previousStatus: "selection", previousRound: 2, statusChanged: false, …}
+TSS: Counted history being pushed
+TSS: Caught history
+TSS: Checking if repeated 500 times for interval 1000 against data:  
+Object {lastTime: 1743303944262, lastCount: 2}
+[SocketManager] Received game state update
+[SocketManager] Updating game state with new data
+[useSocketManager] Game state updated: 
+Object {roundStatus: "storytelling", roundNumber: 2, previousStatus: undefined, previousRound: undefined, statusChanged: true, …}
+[useSocketManager] *** PHASE TRANSITION DETECTED *** 
+Object {transition: "none -> storytelling", roundChange: "Round 0 -> 2", detailedSubmissions: Array(5)}
+[useSocketManager] Game state updated: 
+Object {roundStatus: "storytelling", roundNumber: 2, previousStatus: "selection", previousRound: 2, statusChanged: true, …}
+[useSocketManager] *** PHASE TRANSITION DETECTED *** 
+Object {transition: "selection -> storytelling", roundChange: "No round change", detailedSubmissions: Array(5)}
+[GamePage] Retrieving story cards from game state: 
+Object {submissions: 5, players: 5, roundStatus: "storytelling"}

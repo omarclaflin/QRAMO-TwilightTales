@@ -1,0 +1,60 @@
+## Card Game State Management Solution
+
+Fix my multiplayer card game where selecting cards causes other players' selections to reset. The current code has multiple issues:
+
+1. It tries to merge local and server states in the SocketManager
+2. It uses a global `__tempCardSelections` object to track pending selections
+3. It only preserves selections that haven't been sent to the server yet
+
+Implement this architecture instead:
+
+1. Separate game state (server-authoritative) from UI state (client-side temporary)
+2. SocketManager should not modify incoming server data, just distribute it
+3. Let UI components handle their own pending state:
+
+```javascript
+// Game State Manager - Simple pass-through for server state
+socket.on('GAME_STATE', (data) => {
+  this.gameState = data.game || data;
+  this.notifyListeners(this.gameState);
+});
+
+// Card Selection Component - Manages its own temporary state
+class CardSelectionUI {
+  constructor(gameStateManager) {
+    this.localSelection = null;
+    this.gameStateManager = gameStateManager;
+    gameStateManager.addListener(this.onGameStateUpdate.bind(this));
+  }
+  
+  onCardSelected(cardId) {
+    // Update UI immediately
+    this.localSelection = cardId;
+    this.render();
+    // Inform server
+    this.gameStateManager.sendSelection(cardId);
+  }
+  
+  onGameStateUpdate(gameState) {
+    const myPlayer = gameState.players.find(p => p.id === this.gameStateManager.playerId);
+    
+    // Only update from server if:
+    // 1. We have no local selection, OR
+    // 2. Server has acknowledged our selection (they match)
+    if (!this.localSelection || myPlayer.selectedCard === this.localSelection) {
+      this.localSelection = myPlayer.selectedCard;
+    }
+    
+    this.render();
+  }
+}
+```
+
+This approach:
+- Keeps server as single source of truth
+- Maintains responsive UI with optimistic updates
+- Eliminates complex state merging logic
+- Properly preserves player selections during updates
+- Removes the need for the global `__tempCardSelections` object
+- Encapsulates state within the appropriate components
+- Makes the code more maintainable and testable

@@ -1,0 +1,44 @@
+[GamePage] Using existing player codes: 
+Object {codeCount: 5, playerIds: Array(5), firstFewCodes: Array(3)}
+[GamePage] Filtered submissions with morals: 
+Object {inputSubmissionsCount: 5, filteredMoralsCount: 5, morals: Array(5)}
+[GamePage] Shuffled submissions: 
+Object {originalCount: 5, shuffledCount: 5, displayNames: Array(5)}
+[GamePage] Randomized submissions for voting: 
+Object {shuffledCount: 5, shuffled: Array(5)}
+[SocketManager] Received game state update
+[SocketManager] Updating game state with new data
+[useSocketManager] Game state updated: 
+Object {roundStatus: "voting", roundNumber: 2, previousStatus: undefined, previousRound: undefined, statusChanged: true, …}
+[useSocketManager] *** PHASE TRANSITION DETECTED *** 
+Object {transition: "none -> voting", roundChange: "Round 0 -> 2", detailedSubmissions: Array(5)}
+[useSocketManager] Voting phase details: 
+Object {roundNumber: 2, submissions: Array(5)}
+[useSocketManager] Game state updated: 
+Object {roundStatus: "voting", roundNumber: 2, previousStatus: "selection", previousRound: 2, statusChanged: true, …}
+[useSocketManager] *** PHASE TRANSITION DETECTED *** 
+Object {transition: "selection -> voting", roundChange: "No round change", detailedSubmissions: Array(5)}
+[useSocketManager] Voting phase details: 
+Object {roundNumber: 2, submissions: Array(5)}
+TSS: Counted history being pushed
+TSS: Caught history
+TSS: Checking if repeated 500 times for interval 1000 against data:  
+Object {lastTime: 1743303307772, lastCount: 1}
+[SocketManager] Received game state update
+[SocketManager] Updating game state with new data
+[useSocketManager] Game state updated: 
+Object {roundStatus: "voting", roundNumber: 2, previousStatus: undefined, previousRound: undefined, statusChanged: true, …}
+[useSocketManager] *** PHASE TRANSITION DETECTED *** 
+Object {transition: "none -> voting", roundChange: "Round 0 -> 2", detailedSubmissions: Array(5)}
+[useSocketManager] Voting phase details: 
+Object {roundNumber: 2, submissions: Array(5)}
+[useSocketManager] Game state updated: 
+Object {roundStatus: "voting", roundNumber: 2, previousStatus: "selection", previousRound: 2, statusChanged: true, …}
+[useSocketManager] *** PHASE TRANSITION DETECTED *** 
+Object {transition: "selection -> voting", roundChange: "No round change", detailedSubmissions: Array(5)}
+[useSocketManager] Voting phase details: 
+Object {roundNumber: 2, submissions: Array(5)}
+TSS: Counted history being pushed
+TSS: Caught history
+TSS: Checking if repeated 500 times for interval 1000 against data:  
+Object {lastTime: 1743303317774, lastCount: 1}
