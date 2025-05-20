@@ -1,5 +1,5 @@
 # QRAMO-TwilightTales
- Card game to auto-generate a story, play as a pretentious author TV host explaining your work, compete against AI. Dumb idea for an "Apples to Apples" type of game I had in college, just leaning heavily on AI to implement.
+ Card game to auto-generate a story, play as a pretentious author TV host explaining your work, compete against AI. Silly idea I had for an "Apples to Apples" type of game I had in college, just leaning heavily on AI to implement.
 
 
 This was a project to test Replit, and see if I could create a multiplayer Web game. (Answer: Yes, but only after restarting half a dozen times. And then a bunch of debugging time.)
