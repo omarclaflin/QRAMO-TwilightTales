@@ -9,3 +9,7 @@ Also, was testing Claude API -- "AI" player basically asks Claude (with characte
 I'll add common hang-ups/issues the agents kept getting death-looped/stuck on here later (maybe)
 
 Images are AI generated, prompts are AI generated, code is AI generated, project framework is AI generated, lots of the debugging done by Claude talking to Replit Agent.
+
+[screenshot](https://github.com/omarclaflin/QRAMO-TwilightTales/blob/main/Screenshot%202025-05-19%20194513.png)
+[more screenshots](https://github.com/omarclaflin/QRAMO-TwilightTales/blob/main/Screenshot%202025-05-19%20194551.png)
+[so much screenshotting](https://github.com/omarclaflin/QRAMO-TwilightTales/blob/main/Screenshot%202025-05-19%20194450.png)
