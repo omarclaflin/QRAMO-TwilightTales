@@ -587,7 +587,7 @@ export function MoralSubmission({
         </div>
       </CardHeader>
       <CardContent className="pb-0">
-        <p className="text-sm italic">"{moral}"</p>
+        <p className="text-sm italic break-words whitespace-normal">"{moral}"</p>
       </CardContent>
       <CardFooter className="pt-2">
         {canVote && (

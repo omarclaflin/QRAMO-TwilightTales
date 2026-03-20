@@ -868,7 +868,7 @@ const GamePage: React.FC = () => {
                             )}
                           </div>
                           
-                          <p className="text-sm italic">"{submission.moral}"</p>
+                          <p className="text-sm italic break-words whitespace-normal">"{submission.moral}"</p>
                           
                           {isOwnMoral && (
                             <div className="mt-2 text-xs text-muted-foreground">
@@ -990,7 +990,7 @@ const GamePage: React.FC = () => {
                                   )}
                                 </div>
                               </div>
-                              <p className="text-sm italic">"{submission.moral}"</p>
+                              <p className="text-sm italic break-words whitespace-normal">"{submission.moral}"</p>
                             </div>
                           </Card>
                         );
