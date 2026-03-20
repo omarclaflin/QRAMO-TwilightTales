@@ -4,13 +4,47 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { Submission } from '@shared/schema';
 
-// Initialize Anthropic client with API key from environment variables
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-// The newest Anthropic model is "claude-3-7-sonnet-20250219" which was released February 24, 2025
-const MODEL = 'claude-3-7-sonnet-20250219';
+const MODEL = 'claude-sonnet-4-20250514';
+
+export type AIPersonality = 'qramo' | 'narrator' | 'philosopher';
+
+export const AI_PERSONALITIES: AIPersonality[] = ['qramo', 'narrator', 'philosopher'];
+
+const PERSONALITY_SYSTEM_PROMPTS: Record<AIPersonality, string> = {
+  qramo: `You are QRAMO, a sarcastic AI that generates inappropriate, barely-related moral lessons for bizarre horror stories. Speak as if you're a washed-up actor in a cheap suit, desperately trying to sound profound. Use overly formal language, draw completely illogical conclusions, include an awkward metaphor, deliver the message with unearned gravitas, and end with a questionable life lesson. STRICT OUTPUT INSTRUCTIONS: ONLY return the final moral line. Do NOT include any additional text, explanation, or artifacts. Keep it under 20 words. Maximum impact, minimal words. Do NOT strive for coherence or clarity.`,
+  narrator: `You're Rod Serling after three martinis delivering a Twilight Zone moral. Your moral must completely miss the point of the story, contain at least one mixed metaphor, seem profound but make no sense upon reflection, include a bizarre non-sequitur, and end with ominous ellipses... STRICT OUTPUT INSTRUCTIONS: ONLY return the final moral line. Do NOT include any additional text, explanation, or artifacts. Keep it under 30 words. Do NOT strive for coherence or clarity.`,
+  philosopher: `You're a pompous, self-important philosopher who confuses more than clarifies. Start with "Perhaps the real lesson is..." then draw an absurdly specific conclusion from cosmic horror, include outdated slang used incorrectly, attempt profundity but achieve confusion, and end with a statement that contradicts the beginning. STRICT OUTPUT INSTRUCTIONS: ONLY return the final moral line. Do NOT include any additional text, explanation, or artifacts. Keep it under 30 words.`,
+};
+
+const PERSONALITY_NAMES: Record<AIPersonality, { prefixes: string[]; suffixes: string[] }> = {
+  qramo: {
+    prefixes: ["Dramatic", "Washed", "Hammy", "Thespian", "Stage"],
+    suffixes: ["Actor", "Serling", "Voice", "Host", "Narrator"],
+  },
+  narrator: {
+    prefixes: ["Twilight", "Shadow", "Midnight", "Phantom", "Eerie"],
+    suffixes: ["Zone", "Rod", "Smoke", "Reel", "Dusk"],
+  },
+  philosopher: {
+    prefixes: ["Pompous", "Grand", "Verbose", "Lofty", "Noble"],
+    suffixes: ["Sage", "Oracle", "Thinker", "Muse", "Scribe"],
+  },
+};
+
+export function getRandomPersonality(): AIPersonality {
+  return AI_PERSONALITIES[Math.floor(Math.random() * AI_PERSONALITIES.length)];
+}
+
+export function generateAIPlayerNameForPersonality(personality: AIPersonality): string {
+  const { prefixes, suffixes } = PERSONALITY_NAMES[personality];
+  const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+  const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+  return `${prefix}${suffix}`;
+}
 
 // Track API calls to avoid rate limits
 const apiCallTracker = {
@@ -48,9 +82,8 @@ function checkRateLimit(): boolean {
  * @param {string} story - The complete story
  * @returns {Promise<string>} - A moral for the story
  */
-export async function generateAIMoral(story: string): Promise<string> {
+export async function generateAIMoral(story: string, personality: AIPersonality = 'qramo'): Promise<string> {
   try {
-    // Check for API key and rate limits
     if (!process.env.ANTHROPIC_API_KEY || !checkRateLimit()) {
       console.warn(
         !process.env.ANTHROPIC_API_KEY 
@@ -60,23 +93,15 @@ export async function generateAIMoral(story: string): Promise<string> {
       return generateFallbackMoral(story);
     }
     
-    console.log('[ai-service] Generating moral with Claude AI for story:', story.substring(0, 50) + '...');
+    console.log(`[ai-service] Generating moral with personality "${personality}" for story:`, story.substring(0, 50) + '...');
 
-    const prompt = `
-I want you to read this story and create a clever, insightful moral or lesson from it, 
-in the style of a classic Twilight Zone episode ending. The moral should be brief 
-(1-2 sentences) and have a touch of irony, wisdom, or twist. The story is:
+    const prompt = `Here is the story from a horror/Twilight Zone storytelling card game:\n\n${story}\n\nNow deliver your moral:`;
 
-${story}
-
-The moral of this story is:`;
-
-    // Attempt API call with timeout
     const responsePromise = anthropic.messages.create({
       model: MODEL,
       max_tokens: 100,
-      temperature: 0.7,
-      system: "You are playing a storytelling card game. Your task is to create a witty, mock-serious moral based on the absurd story elements provided. Keep your moral concise, funny, and in the style of classic Twilight Zone episode endings.  STRICT OUTPUT INSTRUCTIONS:- ONLY return the final distilled cryptic line - Do NOT include any additional text, explanation, or artifacts -Keep the final line under 20 words. -Deliver an extremely brief moral - aim for maximum impact with minimal words. -Do NOT strive for coherence or clarity.",
+      temperature: 0.8,
+      system: PERSONALITY_SYSTEM_PROMPTS[personality],
       messages: [
         { role: 'user', content: prompt }
       ],

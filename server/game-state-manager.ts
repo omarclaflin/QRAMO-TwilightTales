@@ -11,8 +11,11 @@ import { cardTypes, gameStatus, roundStatus } from "@shared/schema";
 import {
   generateAIMoral,
   generateAIPlayerName,
+  generateAIPlayerNameForPersonality,
+  getRandomPersonality,
   simulateAIVote,
 } from "./ai-service";
+import type { AIPersonality } from "./ai-service";
 
 // Get directory path for loading card data
 const __filename = fileURLToPath(import.meta.url);
@@ -248,15 +251,17 @@ class GameStateManager {
     );
 
     for (let i = 0; i < aiCount; i++) {
+      const personality = getRandomPersonality();
       const aiPlayer: Player = {
         id: uuidv4(),
-        name: generateAIPlayerName(),
+        name: generateAIPlayerNameForPersonality(personality),
         isAI: true,
+        personality,
         score: 0,
       };
 
       game.players.push(aiPlayer);
-      console.log(`Added AI player ${aiPlayer.name} to game ${game.gameId}`);
+      console.log(`Added AI player ${aiPlayer.name} (${personality}) to game ${game.gameId}`);
     }
   }
 
@@ -974,11 +979,11 @@ class GameStateManager {
             const story = game.round.story;
 
             try {
-              // Call the AI service to generate a moral
-              const generatedMoral = await generateAIMoral(story);
+              const personality = (player.personality as AIPersonality) || 'qramo';
+              const generatedMoral = await generateAIMoral(story, personality);
               player.submittedMoral = generatedMoral;
               console.log(
-                `[game-state-manager] Generated AI moral using Claude: ${generatedMoral}`,
+                `[game-state-manager] Generated AI moral (${personality}): ${generatedMoral}`,
               );
             } catch (error) {
               // Fallback to random selection if AI generation fails

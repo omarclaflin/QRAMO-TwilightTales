@@ -44,12 +44,13 @@ export interface Player {
   isHost?: boolean;
   isAI?: boolean;
   isThinking?: boolean;
+  personality?: string;
   score: number;
   currentCardType?: string;
   hand?: Card[];
   selectedCard?: number | null;
   submittedMoral?: string | null;
-  hasVoted?: boolean; // Added to track if player has voted
+  hasVoted?: boolean;
 }
 
 export interface Submission {
