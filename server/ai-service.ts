@@ -145,8 +145,8 @@ export async function generateAIMoral(story: string, personality: AIPersonality 
     }
     
     // Ensure moral isn't too long
-    if (moral.length > 150) {
-      moral = moral.substring(0, 147) + '...';
+    if (moral.length > 300) {
+      moral = moral.substring(0, 297) + '...';
     }
     
     return moral;
