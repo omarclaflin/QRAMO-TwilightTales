@@ -779,46 +779,15 @@ class GameStateManager {
       }
     });
 
-    // Assemble the story
-    const storyParts: string[] = [];
+    const lcFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
 
-    // Start with location
-    if (selectedCards[cardTypes.LOCATION]) {
-      storyParts.push(
-        `In a ${selectedCards[cardTypes.LOCATION]?.text || "a mysterious place"}`,
-      );
-    }
+    const location = selectedCards[cardTypes.LOCATION]?.text || "a mysterious place";
+    const character = selectedCards[cardTypes.CHARACTER]?.text || "strange character";
+    const twist = selectedCards[cardTypes.INITIAL_TWIST]?.text || "something unusual";
+    const escalation = selectedCards[cardTypes.ESCALATION]?.text || "the situation escalates";
+    const finalTwist = selectedCards[cardTypes.FINAL_TWIST]?.text || "a final twist occurs";
 
-    // Add character
-    if (selectedCards[cardTypes.CHARACTER]) {
-      storyParts.push(
-        `, a ${selectedCards[cardTypes.CHARACTER]?.text || "strange character"}`,
-      );
-    }
-
-    // Add initial twist
-    if (selectedCards[cardTypes.INITIAL_TWIST]) {
-      storyParts.push(
-        ` NOTICES ${selectedCards[cardTypes.INITIAL_TWIST]?.text || "something unusual"}`,
-      );
-    }
-
-    // Add escalation
-    if (selectedCards[cardTypes.ESCALATION]) {
-      storyParts.push(
-        `. But then, ${selectedCards[cardTypes.ESCALATION]?.text || "the situation escalates"}`,
-      );
-    }
-
-    // Add final twist
-    if (selectedCards[cardTypes.FINAL_TWIST]) {
-      storyParts.push(
-        ` ALL BECAUSE ${selectedCards[cardTypes.FINAL_TWIST]?.text || "a final twist occurs"}`,
-      );
-    }
-
-    // Join the story parts with proper spacing
-    game.round.story = storyParts.join(" ");
+    game.round.story = `In a ${location}, a ${character} notices ${lcFirst(twist)}. But then, ${lcFirst(escalation)} — all because ${lcFirst(finalTwist)}.`;
 
     // Initialize submissions for each player
     game.round.submissions = game.players.map((player) => ({

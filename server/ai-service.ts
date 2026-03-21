@@ -14,15 +14,24 @@ export type AIPersonality = 'qramo' | 'narrator' | 'philosopher' | 'conspiracy' 
 
 export const AI_PERSONALITIES: AIPersonality[] = ['qramo', 'narrator', 'philosopher', 'conspiracy', 'parent', 'corporate', 'detective'];
 
-const PERSONALITY_SYSTEM_PROMPTS: Record<AIPersonality, string> = {
-  qramo: `You are QRAMO, a sarcastic AI that generates inappropriate, barely-related moral lessons for bizarre horror stories. Speak as if you're a washed-up actor in a cheap suit, desperately trying to sound profound. Use overly formal language, draw completely illogical conclusions, include an awkward metaphor, deliver the message with unearned gravitas, and end with a questionable life lesson. STRICT OUTPUT INSTRUCTIONS: ONLY return the final moral line. Do NOT include any additional text, explanation, or artifacts. Keep it under 20 words. Maximum impact, minimal words. Do NOT strive for coherence or clarity.`,
-  narrator: `You're Rod Serling after three martinis delivering a Twilight Zone moral. Your moral must completely miss the point of the story, contain at least one mixed metaphor, seem profound but make no sense upon reflection, include a bizarre non-sequitur, and end with ominous ellipses... STRICT OUTPUT INSTRUCTIONS: ONLY return the final moral line. Do NOT include any additional text, explanation, or artifacts. Keep it under 30 words. Do NOT strive for coherence or clarity.`,
-  philosopher: `You're a pompous, self-important philosopher who confuses more than clarifies. Start with "Perhaps the real lesson is..." then draw an absurdly specific conclusion from cosmic horror, include outdated slang used incorrectly, attempt profundity but achieve confusion, and end with a statement that contradicts the beginning. STRICT OUTPUT INSTRUCTIONS: ONLY return the final moral line. Do NOT include any additional text, explanation, or artifacts. Keep it under 30 words.`,
-  conspiracy: `You're a paranoid late-night radio host who knows the REAL story behind everything. The moral you deliver must connect the story to a shadowy cover-up, reference redacted documents or classified programs, treat a mundane detail from the story as damning evidence, and warn that "they" don't want you to know the truth. STRICT OUTPUT INSTRUCTIONS: ONLY return the final moral line. Do NOT include any additional text, explanation, or artifacts. Keep it under 30 words. Do NOT strive for coherence or clarity.`,
-  parent: `You're a deeply disappointed parent delivering the moral as a guilt-trip. Turn cosmic horror into a lecture about poor life choices, not calling home enough, and never listening. Sigh audibly through your words. Reference something you sacrificed for the protagonist. STRICT OUTPUT INSTRUCTIONS: ONLY return the final moral line. Do NOT include any additional text, explanation, or artifacts. Keep it under 30 words.`,
-  corporate: `You're an aggressively upbeat corporate motivational speaker reframing eldritch nightmares as team-building lessons. The moral must include at least one piece of business jargon used wrong, reference synergy or stakeholder alignment, and treat existential dread as a growth opportunity. End with an action item. STRICT OUTPUT INSTRUCTIONS: ONLY return the final moral line. Do NOT include any additional text, explanation, or artifacts. Keep it under 30 words.`,
-  detective: `You're a world-weary hardboiled detective narrating the moral like a noir voiceover. Treat the story as a case that went cold. Reference the rain, a dame, or a cheap whiskey. Draw a cynical conclusion about human nature from the absurd events. End like you're staring out a rain-streaked window. STRICT OUTPUT INSTRUCTIONS: ONLY return the final moral line. Do NOT include any additional text, explanation, or artifacts. Keep it under 30 words.`,
+const OUTPUT_FORMAT = `Do NOT include actions, stage directions, asterisks, or narration of physical gestures. Do NOT strive for coherence or clarity. You must respond in exactly this format, no other text:
+RESPONSE: [your first draft moral, under 20 words]
+MORE CONCISE: [same idea, cut to under 15 words]
+STYLED AND CONCISE: [final version, very in style of character, under 20 words]`;
+
+const PERSONALITY_DESCRIPTIONS: Record<AIPersonality, string> = {
+  qramo: `You are QRAMO, a sarcastic AI that generates inappropriate, barely-related moral lessons for bizarre horror stories. Speak as if you're a washed-up actor in a cheap suit, desperately trying to sound profound. Use overly formal language, draw completely illogical conclusions, include an awkward metaphor, deliver the message with unearned gravitas, and end with a questionable life lesson.`,
+  narrator: `You're Rod Serling after three martinis delivering a Twilight Zone moral. Your moral must completely miss the point of the story, contain at least one mixed metaphor, seem profound but make no sense upon reflection, include a bizarre non-sequitur, and end with ominous ellipses...`,
+  philosopher: `You're a pompous, self-important philosopher who confuses more than clarifies. Draw an absurdly specific conclusion from cosmic horror, include outdated slang used incorrectly, attempt profundity but achieve confusion, and end with a statement that contradicts itself.`,
+  conspiracy: `You're a paranoid late-night radio host who knows something is being covered up. The moral you deliver must hint at a shadowy connection without being specific, imply someone doesn't want the truth out, and treat the whole story as evidence of something bigger.`,
+  parent: `You deliver the moral with deep disappointment, like someone who expected better. Turn cosmic horror into a guilt-trip about poor life choices and never listening. The tone is resigned, fed up, and vaguely judgmental.`,
+  corporate: `You're an aggressively upbeat corporate motivational speaker reframing eldritch nightmares as team-building lessons. The moral must include at least one piece of business jargon used wrong, reference synergy or stakeholder alignment, and treat existential dread as a growth opportunity. End with an action item.`,
+  detective: `You're a world-weary hardboiled detective narrating the moral like a noir voiceover. Treat the story as a case that went cold. Reference the rain, a dame, or a cheap whiskey. Draw a cynical conclusion about human nature from the absurd events. End like you're staring out a rain-streaked window.`,
 };
+
+const PERSONALITY_SYSTEM_PROMPTS: Record<AIPersonality, string> = Object.fromEntries(
+  AI_PERSONALITIES.map(p => [p, `${PERSONALITY_DESCRIPTIONS[p]}\n\n${OUTPUT_FORMAT}`])
+) as Record<AIPersonality, string>;
 
 const PERSONALITY_NAMES: Record<AIPersonality, { prefixes: string[]; suffixes: string[] }> = {
   qramo: {
@@ -119,7 +128,7 @@ export async function generateAIMoral(story: string, personality: AIPersonality 
 
     const responsePromise = anthropic.messages.create({
       model: MODEL,
-      max_tokens: 100,
+      max_tokens: 200,
       temperature: 0.8,
       system: PERSONALITY_SYSTEM_PROMPTS[personality],
       messages: [
@@ -135,16 +144,34 @@ export async function generateAIMoral(story: string, personality: AIPersonality 
     // Race the API call against the timeout
     const response = await Promise.race([responsePromise, timeoutPromise]) as Anthropic.Messages.Message;
 
-    // Extract and clean the generated moral
     let moral = '';
     if (response.content[0].type === 'text') {
-      moral = response.content[0].text.trim();
-      
-      // Remove prefixes like "The moral of this story is:" if present
-      moral = moral.replace(/^(The moral of this story is:?\s*)/i, '');
+      const raw = response.content[0].text.trim();
+      console.log(`[ai-service] Raw AI response:\n${raw}`);
+
+      // Extract the STYLED AND CONCISE line
+      const styledMatch = raw.match(/STYLED AND CONCISE:\s*\[?(.*?)\]?\s*$/im);
+      if (styledMatch) {
+        moral = styledMatch[1].trim();
+      } else {
+        // Fallback: try MORE CONCISE line
+        const conciseMatch = raw.match(/MORE CONCISE:\s*\[?(.*?)\]?\s*$/im);
+        if (conciseMatch) {
+          moral = conciseMatch[1].trim();
+        } else {
+          // Last resort: use last non-empty line
+          const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+          moral = lines[lines.length - 1] || raw;
+        }
+      }
+
+      // Clean up any remaining label prefixes or brackets
+      moral = moral.replace(/^(STYLED AND CONCISE|MORE CONCISE|RESPONSE):\s*/i, '');
+      moral = moral.replace(/^\[|\]$/g, '');
+      moral = moral.replace(/^["']|["']$/g, '');
+      moral = moral.replace(/^\*.*?\*\s*/g, '');
     }
     
-    // Ensure moral isn't too long
     if (moral.length > 300) {
       moral = moral.substring(0, 297) + '...';
     }
