@@ -51,6 +51,8 @@ const GamePage: React.FC = () => {
   // State to store unique player codes for the voting round
   const [playerCodes, setPlayerCodes] = useState<{[key: string]: string}>({});
   
+  const [winnerImage, setWinnerImage] = useState<string>("/assets/player/player_1.png");
+  
   // State to track if cards have been revealed to prevent re-animation
   const [cardsRevealed, setCardsRevealed] = useState<boolean>(false);
   
@@ -144,6 +146,32 @@ const GamePage: React.FC = () => {
     }
   }, [gameState?.round.status, gameState?.round.number]);
   
+  const PLAYER_IMAGE_COUNT = 2;
+  const PERSONALITY_IMAGE_COUNT = 5;
+
+  // Pick winner image when entering results phase
+  useEffect(() => {
+    if (gameState && gameState.round.status === roundStatus.RESULTS) {
+      const subs = gameState.round.submissions;
+      const highestVotes = Math.max(...subs.map(s => s.votes));
+      if (highestVotes > 0) {
+        const winners = subs.filter(s => s.votes === highestVotes);
+        const winner = winners[Math.floor(Math.random() * winners.length)];
+        const player = gameState.players.find(p => p.id === winner.playerId);
+        if (player?.isAI && player.personality) {
+          const imgIndex = Math.floor(Math.random() * PERSONALITY_IMAGE_COUNT) + 1;
+          setWinnerImage(`/assets/personalities/${player.personality}_${imgIndex}.png`);
+        } else {
+          const imgIndex = Math.floor(Math.random() * PLAYER_IMAGE_COUNT) + 1;
+          setWinnerImage(`/assets/player/player_${imgIndex}.png`);
+        }
+      } else {
+        const imgIndex = Math.floor(Math.random() * PLAYER_IMAGE_COUNT) + 1;
+        setWinnerImage(`/assets/player/player_${imgIndex}.png`);
+      }
+    }
+  }, [gameState?.round.status, gameState?.round.number]);
+
   // Reset client state when round status changes
   useEffect(() => {
     if (gameState && gameState.round.status === roundStatus.SELECTION) {
@@ -922,8 +950,8 @@ const GamePage: React.FC = () => {
                   <div className="md:w-[30%] w-full flex justify-center md:justify-end">
                     <div className="w-40 h-40 md:w-52 md:h-52 relative">
                       <img 
-                        src="/assets/narrator.png" 
-                        alt="TV Narrator" 
+                        src={winnerImage} 
+                        alt="Round Winner" 
                         className="w-full h-full object-contain"
                       />
                     </div>
