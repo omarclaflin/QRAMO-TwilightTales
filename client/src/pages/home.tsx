@@ -20,14 +20,6 @@ const HomePage: React.FC = () => {
     console.log(`[HomePage] Socket connection status: ${connected ? 'connected' : 'disconnected'}, isConnecting: ${isConnecting}`);
     setConnectionStatus(connected ? 'connected' : (isConnecting ? 'connecting' : 'disconnected'));
     
-    // Add visual indicator for connection status
-    if (connected) {
-      toast({
-        title: 'Connected to Server',
-        description: 'Your connection is established. You can now create or join games.',
-        variant: 'default',
-      });
-    }
   }, [connected, isConnecting, toast]);
   
   const handleCreateGame = () => {

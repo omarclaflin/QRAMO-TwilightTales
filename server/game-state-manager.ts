@@ -1082,7 +1082,7 @@ class GameStateManager {
     const personality = (judge.personality as AIPersonality) || 'qramo';
     console.log(`[game-state-manager] AI judge ${judge.name} (${personality}) deliberating...`);
 
-    const result = await generateAIJudgment(morals, personality);
+    const result = await generateAIJudgment(morals, personality, game.round.story);
     return this.judgePickWinner(gameId, judge.id, result.winnerId, result.reason);
   }
 

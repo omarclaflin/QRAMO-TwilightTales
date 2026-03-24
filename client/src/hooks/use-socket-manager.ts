@@ -53,12 +53,6 @@ export function useSocketManager() {
       if (state === 'connected') {
         setConnected(true);
         setConnecting(false);
-        
-        toast({
-          title: 'Connected',
-          description: 'Connected to the game server',
-          variant: 'default',
-        });
       } else if (state === 'connecting') {
         setConnected(false);
         setConnecting(true);

@@ -141,12 +141,6 @@ const GamePage: React.FC = () => {
     setLocalSelectedCardId(cardId);
     // Then update through socket manager
     selectCard(cardId);
-    // Using toast to provide visual feedback for card selection
-    toast({
-      title: 'Card Selected',
-      description: `You have selected card #${cardId}. Click "Confirm Selection" to submit.`,
-      duration: 3000,
-    });
   };
   
   // Handle moral submission
@@ -439,13 +433,7 @@ const GamePage: React.FC = () => {
                       // Update custom card text through socket manager
                       if (gameState.gameId) {
                         updateCustomCard(gameState.gameId, cardId, text)
-                          .then(() => {
-                            toast({
-                              title: 'Custom Card Updated',
-                              description: 'Your custom card has been updated successfully',
-                              duration: 3000,
-                            });
-                          })
+                          .then(() => {})
                           .catch((error: unknown) => {
                             console.error('[GamePage] Error updating custom card:', error);
                             toast({
@@ -481,13 +469,7 @@ const GamePage: React.FC = () => {
                           
                           // Now actually submit the card to the server
                           confirmCardSelection(localSelectedCardId, customText)
-                            .then(() => {
-                              toast({
-                                title: 'Card Confirmed',
-                                description: `Your card has been submitted for the story`,
-                                duration: 3000,
-                              });
-                            })
+                            .then(() => {})
                             .catch((error: unknown) => {
                               console.error('[GamePage] Error confirming card:', error);
                               toast({

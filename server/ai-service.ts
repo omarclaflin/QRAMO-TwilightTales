@@ -74,7 +74,8 @@ export function generateAIPlayerNameForPersonality(personality: AIPersonality): 
   return `${prefix}${suffix}`;
 }
 
-const JUDGING_FORMAT = `Do NOT include actions, stage directions, asterisks, or narration of physical gestures. You must respond in exactly this format, no other text:
+const JUDGING_FORMAT = `Prefer morals that explain or constructively add to the theme of the story. Strongly prefer morals that are clever or funny.
+Do NOT include actions, stage directions, asterisks, or narration of physical gestures. You must respond in exactly this format, no other text:
 PREFERRED: [number of your chosen moral, e.g. 1, 2, 3...]
 REASON: [one sentence explanation in your character voice, under 15 words]`;
 
@@ -99,7 +100,8 @@ export interface JudgmentResult {
 
 export async function generateAIJudgment(
   morals: { playerId: string; moral: string }[],
-  personality: AIPersonality
+  personality: AIPersonality,
+  story: string
 ): Promise<JudgmentResult> {
   try {
     if (!process.env.ANTHROPIC_API_KEY || !checkRateLimit()) {
@@ -107,7 +109,7 @@ export async function generateAIJudgment(
     }
 
     const moralList = morals.map((m, i) => `${i + 1}. "${m.moral}"`).join('\n');
-    const prompt = `Here are the morals submitted for a horror/Twilight Zone storytelling card game. Pick your favorite:\n\n${moralList}\n\nNow judge:`;
+    const prompt = `Here is the story from this round:\n\n"${story}"\n\nHere are the morals submitted. Pick your favorite:\n\n${moralList}\n\nNow judge:`;
 
     console.log(`[ai-service] AI judge (${personality}) evaluating ${morals.length} morals`);
 
