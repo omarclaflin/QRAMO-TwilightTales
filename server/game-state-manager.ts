@@ -1060,11 +1060,6 @@ class GameStateManager {
 
     game.round.status = roundStatus.RESULTS;
 
-    if (game.round.number >= game.settings.roundsToPlay) {
-      game.status = gameStatus.COMPLETED;
-      console.log(`[game-state-manager] Game ${gameId} completed after round ${game.round.number}`);
-    }
-
     return true;
   }
 

@@ -237,34 +237,18 @@ const GamePage: React.FC = () => {
       'finalTwist'
     ];
     
-    // First, retrieve all cards from submissions
+    // Retrieve all selected cards from ALL players (including judge)
     const submittedCards: (ExtendedCard | null)[] = [];
     
-    // Add detailed submission logging
-    console.log('[GamePage] All submissions:', gameState.round.submissions);
-    
-    // Map submissions to their corresponding cards
-    gameState.round.submissions.forEach(submission => {
-      const player = gameState.players.find(p => p.id === submission.playerId);
-      if (!player || !player.hand) {
-        console.log(`[GamePage] Cannot find player or hand for submission by ${submission.playerId}`);
-        submittedCards.push(null);
-        return;
-      }
+    gameState.players.forEach(player => {
+      if (!player.selectedCard || !player.hand) return;
       
-      const card = player.hand.find(c => c.id === submission.cardId);
-      if (!card) {
-        console.log(`[GamePage] Cannot find card ${submission.cardId} in player ${player.name}'s hand`);
-        console.log(`[GamePage] Available cards in hand:`, player.hand.map(c => c.id));
-        submittedCards.push(null);
-      } else {
-        console.log(`[GamePage] Found card ${card.id} for player ${player.name}: "${card.text}"`);
-        // Store the card with its player's card type
-        const cardWithType: ExtendedCard = {
+      const card = player.hand.find(c => c.id === player.selectedCard);
+      if (card) {
+        submittedCards.push({
           ...card,
           playerCardType: player.currentCardType || null
-        };
-        submittedCards.push(cardWithType);
+        });
       }
     });
     

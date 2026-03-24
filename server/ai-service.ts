@@ -76,7 +76,7 @@ export function generateAIPlayerNameForPersonality(personality: AIPersonality): 
 
 const JUDGING_FORMAT = `Do NOT include actions, stage directions, asterisks, or narration of physical gestures. You must respond in exactly this format, no other text:
 PREFERRED: [number of your chosen moral, e.g. 1, 2, 3...]
-REASON: [one sentence explanation in your character voice, under 25 words]`;
+REASON: [one sentence explanation in your character voice, under 15 words]`;
 
 const PERSONALITY_JUDGING_DESCRIPTIONS: Record<AIPersonality, string> = {
   qramo: `You are QRAMO judging morals. Pick the one that is the most absurdly inappropriate yet delivered with the most unearned gravitas. Favor morals that draw the most illogical conclusions.`,
