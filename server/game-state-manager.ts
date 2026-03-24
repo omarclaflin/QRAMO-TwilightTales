@@ -9,10 +9,10 @@ import { v4 as uuidv4 } from "uuid";
 import { Game, Player, Card, Submission, Round } from "@shared/schema";
 import { cardTypes, gameStatus, roundStatus } from "@shared/schema";
 import {
+  AI_PERSONALITIES,
   generateAIMoral,
   generateAIPlayerName,
   generateAIPlayerNameForPersonality,
-  getRandomPersonality,
   simulateAIVote,
 } from "./ai-service";
 import type { AIPersonality } from "./ai-service";
@@ -250,8 +250,9 @@ class GameStateManager {
       `Adding ${aiCount} AI players to game ${game.gameId}. Current players: ${currentHumanCount}`,
     );
 
+    const shuffled = [...AI_PERSONALITIES].sort(() => Math.random() - 0.5);
     for (let i = 0; i < aiCount; i++) {
-      const personality = getRandomPersonality();
+      const personality = shuffled[i % shuffled.length];
       const aiPlayer: Player = {
         id: uuidv4(),
         name: generateAIPlayerNameForPersonality(personality),
@@ -787,7 +788,7 @@ class GameStateManager {
     const escalation = selectedCards[cardTypes.ESCALATION]?.text || "the situation escalates";
     const finalTwist = selectedCards[cardTypes.FINAL_TWIST]?.text || "a final twist occurs";
 
-    game.round.story = `In a ${location}, a ${character} notices ${lcFirst(twist)}. But then, ${lcFirst(escalation)} — all because ${lcFirst(finalTwist)}.`;
+    game.round.story = `In a ${location}, a ${lcFirst(character)} notices ${lcFirst(twist)}. But then, ${lcFirst(escalation)} — all because ${lcFirst(finalTwist)}.`;
 
     // Initialize submissions for each player
     game.round.submissions = game.players.map((player) => ({
