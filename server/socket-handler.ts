@@ -287,20 +287,32 @@ export function setupWebSocketServer(server: HttpServer) {
           (async () => {
             console.log(`[socket-handler] Initiating AI selections for game ${gameId}`);
             
-            // Broadcast the initial state (human player selection)
             broadcastGameState(gameId);
             
-            // Wait for AI players to make their selections
             await gameStateManager.makeAISelections(gameId);
             
-            // Get the updated game state after AI selections
             const updatedGame = gameStateManager.getGameState(gameId);
-            
-            // Log the status for debugging
             console.log(`[socket-handler] AI selections completed for game ${gameId}, round status: ${updatedGame?.round.status}`);
             
-            // Broadcast the updated state after AI players have selected
             broadcastGameState(gameId);
+            
+            // After AI selections, if we moved to storytelling, generate AI morals
+            if (updatedGame && updatedGame.round.status === 'storytelling') {
+              console.log(`[socket-handler] Generating AI morals after card selection for game ${gameId}`);
+              await gameStateManager.generateAIMorals(gameId);
+              broadcastGameState(gameId);
+              
+              // If all morals are in and judge is AI, trigger judgment
+              const gameAfterMorals = gameStateManager.getGameState(gameId);
+              if (gameAfterMorals && gameAfterMorals.round.status === roundStatus.VOTING) {
+                const judge = gameAfterMorals.players.find(p => p.id === gameAfterMorals.round.judgeId);
+                if (judge?.isAI) {
+                  console.log(`[socket-handler] AI judge triggering judgment for game ${gameId}`);
+                  await gameStateManager.triggerAIJudgment(gameId);
+                  broadcastGameState(gameId);
+                }
+              }
+            }
           })();
           
           // Return early, as we'll handle the rest in the async function
