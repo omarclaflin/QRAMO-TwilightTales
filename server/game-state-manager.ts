@@ -774,7 +774,7 @@ class GameStateManager {
     const escalation = selectedCards[cardTypes.ESCALATION]?.text || "the situation escalates";
     const finalTwist = selectedCards[cardTypes.FINAL_TWIST]?.text || "a final twist occurs";
 
-    game.round.story = `In a ${location}, a ${lcFirst(character)} notices ${lcFirst(twist)}. But then, ${lcFirst(escalation)} — all because ${lcFirst(finalTwist)}.`;
+    game.round.story = `In a ${lcFirst(location)}, a ${lcFirst(character)} notices ${lcFirst(twist)}. But then, ${lcFirst(escalation)} — all because ${lcFirst(finalTwist)}.`;
 
     // Initialize submissions for each non-judge player
     game.round.submissions = game.players

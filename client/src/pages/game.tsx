@@ -169,45 +169,16 @@ const GamePage: React.FC = () => {
   
   // Handle next round
   const handleNextRound = () => {
-    console.log('[GamePage] handleNextRound called - Before state resets:', {
-      roundStatus: gameState?.round.status,
-      roundNumber: gameState?.round.number,
-      localSelectedCardId,
-      playerCodesCount: Object.keys(playerCodes).length,
-      randomizedSubmissionsCount: randomizedSubmissions.length,
-      cardsRevealed,
-      hasStoryDisplayRef: !!storyDisplayRef.current,
-      allPlayers: gameState?.players.map(p => ({
-        id: p.id,
-        name: p.name,
-        selectedCard: p.selectedCard,
-        score: p.score
-      }))
-    });
-    
     setLocalSelectedCardId(null);
     setSelectedWinnerId(null);
     setJudgeReason('');
     setCardsRevealed(false);
     
-    // Reset story display animation state
     if (storyDisplayRef.current && storyDisplayRef.current.resetAnimation) {
-      console.log('[GamePage] Resetting StoryDisplay animation state for new round');
       storyDisplayRef.current.resetAnimation();
     }
     
-    console.log('[GamePage] Calling nextRound() function');
     nextRound();
-    
-    // Log again after state resets for debugging
-    setTimeout(() => {
-      console.log('[GamePage] handleNextRound - After state resets (setTimeout):', {
-        localSelectedCardId: null, // We know this is null now
-        playerCodesCount: 0, // Should be empty now
-        randomizedSubmissionsCount: 0, // Should be empty now
-        cardsRevealed: false // Should be false now
-      });
-    }, 0);
   };
   
   // Handle exit game
