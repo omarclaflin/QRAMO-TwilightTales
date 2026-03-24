@@ -2,7 +2,6 @@
  * AI service for generating content using Anthropic's Claude API
  */
 import Anthropic from '@anthropic-ai/sdk';
-import { Submission } from '@shared/schema';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -73,6 +72,86 @@ export function generateAIPlayerNameForPersonality(personality: AIPersonality): 
   const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
   const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
   return `${prefix}${suffix}`;
+}
+
+const JUDGING_FORMAT = `Do NOT include actions, stage directions, asterisks, or narration of physical gestures. You must respond in exactly this format, no other text:
+PREFERRED: [number of your chosen moral, e.g. 1, 2, 3...]
+REASON: [one sentence explanation in your character voice, under 25 words]`;
+
+const PERSONALITY_JUDGING_DESCRIPTIONS: Record<AIPersonality, string> = {
+  qramo: `You are QRAMO judging morals. Pick the one that is the most absurdly inappropriate yet delivered with the most unearned gravitas. Favor morals that draw the most illogical conclusions.`,
+  narrator: `You're Rod Serling after three martinis judging morals. Pick the one that sounds the most profound while making the least sense. Favor mixed metaphors and ominous nonsense.`,
+  philosopher: `You're a pompous philosopher judging morals. Pick the one that most successfully confuses profundity with confusion. Favor outdated language and self-contradicting statements.`,
+  conspiracy: `You're a paranoid radio host judging morals. Pick the one that best hints at a cover-up or hidden truth. Favor morals that treat mundane things as evidence of something sinister.`,
+  parent: `You judge morals with deep disappointment. Pick the one that best captures the feeling of poor life choices and not listening. Favor resigned, guilt-inducing wisdom.`,
+  corporate: `You're a motivational speaker judging morals. Pick the one with the best synergy potential and growth mindset energy. Favor business jargon and action items.`,
+  detective: `You're a hardboiled detective judging morals. Pick the one that best captures the cynical truth of the human condition. Favor noir poetry and rain-soaked wisdom.`,
+};
+
+const PERSONALITY_JUDGING_PROMPTS: Record<AIPersonality, string> = Object.fromEntries(
+  AI_PERSONALITIES.map(p => [p, `${PERSONALITY_JUDGING_DESCRIPTIONS[p]}\n\n${JUDGING_FORMAT}`])
+) as Record<AIPersonality, string>;
+
+export interface JudgmentResult {
+  winnerId: string;
+  reason: string;
+}
+
+export async function generateAIJudgment(
+  morals: { playerId: string; moral: string }[],
+  personality: AIPersonality
+): Promise<JudgmentResult> {
+  try {
+    if (!process.env.ANTHROPIC_API_KEY || !checkRateLimit()) {
+      return fallbackJudgment(morals);
+    }
+
+    const moralList = morals.map((m, i) => `${i + 1}. "${m.moral}"`).join('\n');
+    const prompt = `Here are the morals submitted for a horror/Twilight Zone storytelling card game. Pick your favorite:\n\n${moralList}\n\nNow judge:`;
+
+    console.log(`[ai-service] AI judge (${personality}) evaluating ${morals.length} morals`);
+
+    const responsePromise = anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 150,
+      temperature: 0.7,
+      system: PERSONALITY_JUDGING_PROMPTS[personality],
+      messages: [{ role: 'user', content: prompt }],
+    });
+
+    const timeoutPromise = new Promise<null>((_, reject) => {
+      setTimeout(() => reject(new Error('AI judgment timed out after 15 seconds')), 15000);
+    });
+
+    const response = await Promise.race([responsePromise, timeoutPromise]) as Anthropic.Messages.Message;
+
+    if (response.content[0].type === 'text') {
+      const raw = response.content[0].text.trim();
+      console.log(`[ai-service] Raw AI judgment:\n${raw}`);
+
+      const preferredMatch = raw.match(/PREFERRED:\s*\[?(\d+)\]?/i);
+      const reasonMatch = raw.match(/REASON:\s*\[?(.*?)\]?\s*$/im);
+
+      if (preferredMatch) {
+        const idx = parseInt(preferredMatch[1], 10) - 1;
+        if (idx >= 0 && idx < morals.length) {
+          let reason = reasonMatch ? reasonMatch[1].trim().replace(/^\[|\]$/g, '').replace(/^["']|["']$/g, '') : 'No reason given.';
+          return { winnerId: morals[idx].playerId, reason };
+        }
+      }
+    }
+
+    console.warn('[ai-service] Could not parse AI judgment, falling back to random');
+    return fallbackJudgment(morals);
+  } catch (error) {
+    console.error('[ai-service] Error in AI judgment:', error);
+    return fallbackJudgment(morals);
+  }
+}
+
+function fallbackJudgment(morals: { playerId: string; moral: string }[]): JudgmentResult {
+  const idx = Math.floor(Math.random() * morals.length);
+  return { winnerId: morals[idx].playerId, reason: 'The judge deliberated in mysterious silence.' };
 }
 
 // Track API calls to avoid rate limits
@@ -228,71 +307,6 @@ export function generateAIPlayerName(): string {
   return `${prefix}${suffix}`;
 }
 
-/**
- * Simulate an AI player's vote on morals
- * @param {Array<Submission>} submissions - Array of moral submissions
- * @param {string} aiPlayerId - ID of the AI player
- * @param {Array<Player>} players - Array of all players in the game
- * @returns {string | null} - ID of the player being voted for
- */
-export function simulateAIVote(
-  submissions: Submission[], 
-  aiPlayerId: string,
-  players: any[] // Using any[] to avoid circular dependency with Player interface
-): string | null {
-  // Filter out the AI's own submission
-  const votableSubmissions = submissions.filter(s => s.playerId !== aiPlayerId);
-  
-  if (votableSubmissions.length === 0) return null;
-  
-  // Weighted random selection for voting with enhanced human preference:
-  // - Human players' morals get double weight compared to AI players
-  // - Longer morals slightly more likely to get votes (simulating effort)
-  // - Players without votes more likely to receive votes (to balance scoring)
-  
-  // Calculate weights based on player type, moral length and existing votes
-  const weights = votableSubmissions.map(sub => {
-    // Find if this submission belongs to a human or AI player
-    const player = players.find(p => p.id === sub.playerId);
-    const isHuman = player && !player.isAI;
-    
-    // Human players get 2x weight bonus
-    const humanFactor = isHuman ? 2.0 : 1.0;
-    
-    // Other weight factors
-    const lengthFactor = sub.moral ? Math.min(1.5, sub.moral.length / 50) : 0.5;
-    const voteFactor = sub.votes === 0 ? 1.5 : (1 / (sub.votes + 1));
-    
-    // Calculate final weight with human preference
-    return humanFactor * lengthFactor * voteFactor;
-  });
-  
-  // Calculate total weight
-  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
-  
-  // Generate random value
-  let random = Math.random() * totalWeight;
-  
-  // Find the selected submission
-  for (let i = 0; i < votableSubmissions.length; i++) {
-    random -= weights[i];
-    if (random <= 0) {
-      // Get the player ID we're voting for
-      const votedForId = votableSubmissions[i].playerId;
-      
-      // Log vote decision with weight information
-      const player = players.find(p => p.id === votedForId);
-      const isHuman = player && !player.isAI;
-      console.log(`AI ${aiPlayerId} voting decision: selected ${votedForId} (${isHuman ? 'Human' : 'AI'}) with weight ${weights[i]}`);
-      
-      return votedForId;
-    }
-  }
-  
-  // Fallback to random selection if something went wrong
-  const randomIndex = Math.floor(Math.random() * votableSubmissions.length);
-  return votableSubmissions[randomIndex].playerId;
-}
 
 /**
  * Analyze a story to determine appropriate character or theme

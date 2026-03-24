@@ -49,7 +49,7 @@ export const useGameState = (props?: UseGameStateProps) => {
     confirmCardSelection: socketConfirmCardSelection,
     updateCustomCard: socketUpdateCustomCard, // Add the update custom card method
     submitMoral: socketSubmitMoral,
-    castVote: socketCastVote,
+    judgePick: socketJudgePick,
     nextRound: socketNextRound,
     leaveGame: socketLeaveGame
   } = useSocketManager();
@@ -188,27 +188,19 @@ export const useGameState = (props?: UseGameStateProps) => {
   }, [gameState, socketSubmitMoral, toast]);
 
   /**
-   * Cast a vote for another player's moral
-   * @param votedForId - ID of the player being voted for
+   * Judge picks the winning moral
+   * @param winnerId - ID of the winning player
+   * @param reason - Judge's reason for picking this moral
    */
-  const castVote = useCallback(async (votedForId: string) => {
+  const judgePick = useCallback(async (winnerId: string, reason: string) => {
     if (!gameState || !playerId) return;
     
-    if (votedForId === playerId) {
-      toast({
-        title: 'Invalid Vote',
-        description: 'You cannot vote for yourself',
-        variant: 'destructive',
-      });
-      return;
-    }
-    
     try {
-      await socketCastVote(gameState.gameId, votedForId);
+      await socketJudgePick(gameState.gameId, winnerId, reason);
     } catch (error) {
-      console.error('Error casting vote:', error);
+      console.error('Error in judge pick:', error);
     }
-  }, [gameState, playerId, socketCastVote, toast]);
+  }, [gameState, playerId, socketJudgePick]);
 
   /**
    * Start the next round of the game
@@ -301,7 +293,7 @@ export const useGameState = (props?: UseGameStateProps) => {
     confirmCardSelection,
     updateCustomCard, // Add the update custom card method
     submitMoral,
-    castVote,
+    judgePick,
     nextRound,
     leaveGame
   };

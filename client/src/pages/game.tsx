@@ -38,18 +38,15 @@ const cardTypeLabels: Record<string, string> = {
 const GamePage: React.FC = () => {
   const { gameId } = useParams();
   const { toast } = useToast();
-  const [selectedMoral, setSelectedMoral] = useState<string | null>(null);
   const [localSelectedCardId, setLocalSelectedCardId] = useState<number | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
   
   // Reference to the StoryDisplay component for animation control
   const storyDisplayRef = useRef<any>(null);
   
-  // State for randomized player order during voting
-  const [randomizedSubmissions, setRandomizedSubmissions] = useState<any[]>([]);
-  
-  // State to store unique player codes for the voting round
-  const [playerCodes, setPlayerCodes] = useState<{[key: string]: string}>({});
+  // State for judge pick UI
+  const [selectedWinnerId, setSelectedWinnerId] = useState<string | null>(null);
+  const [judgeReason, setJudgeReason] = useState<string>('');
   
   const [winnerImage, setWinnerImage] = useState<string>("/assets/player/player_1.png");
   
@@ -62,9 +59,9 @@ const GamePage: React.FC = () => {
     currentPlayer,
     selectCard,
     confirmCardSelection,
-    updateCustomCard, // Add the update custom card method
+    updateCustomCard,
     submitMoral,
-    castVote,
+    judgePick,
     nextRound,
     leaveGame
   } = useGameState();
@@ -92,57 +89,16 @@ const GamePage: React.FC = () => {
     }
   }, [gameState, currentPlayer, localSelectedCardId]);
   
-  // Generate new player codes when entering voting stage
+  // Reset judge pick state when entering judging phase
   useEffect(() => {
-    console.log('[GamePage] Round status or number changed:', {
-      roundStatus: gameState?.round.status,
-      roundNumber: gameState?.round.number,
-      previousStatus: '_previous_round_status_', // Will be seen in subsequent calls
-      playerId,
-      cardsRevealed,
-      localSelectedCardId,
-      submissionsCount: gameState?.round.submissions?.length || 0,
-      playerCodesCount: Object.keys(playerCodes).length,
-      randomizedSubmissionsCount: randomizedSubmissions.length
-    });
-    
     if (gameState && gameState.round.status === roundStatus.VOTING) {
-      console.log('[GamePage] Entering VOTING stage:', {
+      console.log('[GamePage] Entering judging phase:', {
         roundNumber: gameState.round.number,
-        submissions: gameState.round.submissions.map(s => ({
-          playerId: s.playerId,
-          cardId: s.cardId,
-          hasMoral: !!s.moral,
-          votes: s.votes
-        })),
-        playerCodes: Object.keys(playerCodes).length > 0 ? 'Already generated' : 'Generating new',
-        allPlayers: gameState.players.map(p => ({
-          id: p.id,
-          name: p.name,
-          isAI: p.isAI,
-          score: p.score,
-          hasSelectedCard: p.selectedCard !== null
-        }))
+        judgeId: gameState.round.judgeId,
+        isCurrentPlayerJudge: playerId === gameState.round.judgeId,
       });
-      
-      // Generate new player codes for this voting round
-      const newCodes = generatePlayerCodes();
-      setPlayerCodes(newCodes);
-      
-      // After setting player codes, randomize the submissions
-      setTimeout(() => {
-        const shuffled = randomizeSubmissions();
-        setRandomizedSubmissions(shuffled);
-        console.log('[GamePage] Randomized submissions for voting:', {
-          shuffledCount: shuffled.length,
-          shuffled: shuffled.map(s => ({
-            playerId: s.playerId,
-            displayName: s.displayName,
-            hasMoral: !!s.moral,
-            votes: s.votes
-          }))
-        });
-      }, 0);
+      setSelectedWinnerId(null);
+      setJudgeReason('');
     }
   }, [gameState?.round.status, gameState?.round.number]);
   
@@ -152,12 +108,9 @@ const GamePage: React.FC = () => {
   // Pick winner image when entering results phase
   useEffect(() => {
     if (gameState && gameState.round.status === roundStatus.RESULTS) {
-      const subs = gameState.round.submissions;
-      const highestVotes = Math.max(...subs.map(s => s.votes));
-      if (highestVotes > 0) {
-        const winners = subs.filter(s => s.votes === highestVotes);
-        const winner = winners[Math.floor(Math.random() * winners.length)];
-        const player = gameState.players.find(p => p.id === winner.playerId);
+      const winnerSub = gameState.round.submissions.find(s => s.isWinner);
+      if (winnerSub) {
+        const player = gameState.players.find(p => p.id === winnerSub.playerId);
         if (player?.isAI && player.personality) {
           const imgIndex = Math.floor(Math.random() * PERSONALITY_IMAGE_COUNT) + 1;
           setWinnerImage(`/assets/personalities/${player.personality}_${imgIndex}.png`);
@@ -177,8 +130,7 @@ const GamePage: React.FC = () => {
     if (gameState && gameState.round.status === roundStatus.SELECTION) {
       console.log('[GamePage] New round started, resetting local state');
       setCardsRevealed(false);
-      setSelectedMoral(null); // CRITICAL FIX: Reset selected moral when starting a new round
-      console.log('[GamePage] Reset selectedMoral state to null for new round');
+      console.log('[GamePage] Reset state for new round');
     }
   }, [gameState?.round.status, gameState?.round.number]);
   
@@ -202,10 +154,11 @@ const GamePage: React.FC = () => {
     submitMoral(moral);
   };
   
-  // Handle moral voting
-  const handleVote = (playerId: string) => {
-    castVote(playerId);
-    setSelectedMoral(playerId);
+  // Handle judge pick submission
+  const handleJudgePick = () => {
+    if (selectedWinnerId && judgeReason.trim()) {
+      judgePick(selectedWinnerId, judgeReason.trim());
+    }
   };
   
   // Callback for when StoryDisplay has finished revealing cards
@@ -219,7 +172,6 @@ const GamePage: React.FC = () => {
     console.log('[GamePage] handleNextRound called - Before state resets:', {
       roundStatus: gameState?.round.status,
       roundNumber: gameState?.round.number,
-      selectedMoral,
       localSelectedCardId,
       playerCodesCount: Object.keys(playerCodes).length,
       randomizedSubmissionsCount: randomizedSubmissions.length,
@@ -233,13 +185,9 @@ const GamePage: React.FC = () => {
       }))
     });
     
-    setSelectedMoral(null);
-    // Reset local card selection when moving to next round
     setLocalSelectedCardId(null);
-    // Reset randomized submissions and player codes for the next round
-    setRandomizedSubmissions([]);
-    setPlayerCodes({});
-    // Reset cards revealed state
+    setSelectedWinnerId(null);
+    setJudgeReason('');
     setCardsRevealed(false);
     
     // Reset story display animation state
@@ -254,7 +202,6 @@ const GamePage: React.FC = () => {
     // Log again after state resets for debugging
     setTimeout(() => {
       console.log('[GamePage] handleNextRound - After state resets (setTimeout):', {
-        selectedMoral: null, // We know this is null now
         localSelectedCardId: null, // We know this is null now
         playerCodesCount: 0, // Should be empty now
         randomizedSubmissionsCount: 0, // Should be empty now
@@ -354,42 +301,6 @@ const GamePage: React.FC = () => {
     return gameState.players.every(p => getSubmissionByPlayerId(p.id)?.moral);
   };
   
-  // Helper function to check if player has voted based on server state
-  const hasVoted = () => {
-    // First check local UI state
-    if (selectedMoral !== null) {
-      console.log(`[GamePage] hasVoted(): Local UI state shows player has voted (selectedMoral: ${selectedMoral})`);
-      return true;
-    }
-    
-    // Then check server state from current player's submission
-    if (!gameState || !playerId) {
-      console.log(`[GamePage] hasVoted(): No gameState or playerId, assuming not voted`);
-      return false;
-    }
-    
-    const currentPlayerSubmission = gameState.round.submissions.find(
-      s => s.playerId === playerId
-    );
-    
-    // Check both player hasVoted flag and submission hasVoted flag
-    const currentPlayer = gameState.players.find(p => p.id === playerId);
-    const playerVotedFlag = currentPlayer?.hasVoted === true;
-    const submissionVotedFlag = currentPlayerSubmission?.hasVoted === true;
-    
-    // Log detailed state for debugging
-    console.log(`[GamePage] hasVoted() server state check:`, {
-      playerId,
-      playerHasVoted: playerVotedFlag,
-      submissionHasVoted: submissionVotedFlag,
-      roundNumber: gameState.round.number,
-      roundStatus: gameState.round.status
-    });
-    
-    // If either flag indicates voting, consider the player as having voted
-    return playerVotedFlag || submissionVotedFlag;
-  };
-  
   // Helper function to check if player has selected a card
   const hasSelectedCard = () => {
     return currentPlayer?.selectedCard !== null;
@@ -400,119 +311,6 @@ const GamePage: React.FC = () => {
     if (!playerId) return false;
     const submission = getSubmissionByPlayerId(playerId);
     return submission?.moral !== null;
-  };
-  
-  // Helper function to generate random codes for players
-  const generatePlayerCodes = () => {
-    if (!gameState || !gameState.players) return {};
-    
-    console.log('[GamePage] Generating new player codes for voting anonymity');
-    
-    const adjectives = [
-      'Red', 'Blue', 'Green', 'Purple', 'Yellow', 'Orange', 'Pink', 'Teal',
-      'Gray', 'Silver', 'Golden', 'Crystal', 'Shadowy', 'Bright', 'Cosmic'
-    ];
-    
-    const nouns = [
-      'Fox', 'Wolf', 'Eagle', 'Hawk', 'Bear', 'Tiger', 'Lion', 'Shark',
-      'Dragon', 'Phoenix', 'Serpent', 'Raven', 'Owl', 'Falcon', 'Panther'
-    ];
-    
-    // Generate a unique code for each player
-    const codes: {[key: string]: string} = {};
-    const usedCodes = new Set<string>();
-    
-    gameState.players.forEach(player => {
-      let code = '';
-      // Ensure we don't get duplicate codes
-      do {
-        const adjective = adjectives[Math.floor(Math.random() * adjectives.length)];
-        const noun = nouns[Math.floor(Math.random() * nouns.length)];
-        code = `${adjective} ${noun}`;
-      } while (usedCodes.has(code));
-      
-      usedCodes.add(code);
-      codes[player.id] = code;
-      console.log(`[GamePage] Assigned code "${code}" to player ${player.name}`);
-    });
-    
-    return codes;
-  };
-  
-  // Helper function to randomize submissions for voting
-  const randomizeSubmissions = () => {
-    console.log('[GamePage] randomizeSubmissions called:', {
-      roundStatus: gameState?.round.status,
-      roundNumber: gameState?.round.number,
-      hasGameState: !!gameState,
-      submissionsCount: gameState?.round.submissions?.length || 0,
-      playerCodesCount: Object.keys(playerCodes).length,
-      playerCodes: Object.keys(playerCodes),
-      allSubmissions: gameState?.round.submissions?.map(s => ({
-        playerId: s.playerId,
-        cardId: s.cardId,
-        hasMoral: !!s.moral,
-        votes: s.votes
-      }))
-    });
-    
-    if (!gameState || !gameState.round.submissions) {
-      console.log('[GamePage] No game state or submissions in randomizeSubmissions, returning empty array');
-      return [];
-    }
-    
-    // First, generate player codes if they don't exist
-    if (Object.keys(playerCodes).length === 0) {
-      console.log('[GamePage] No player codes exist, generating new ones in randomizeSubmissions');
-      const newCodes = generatePlayerCodes();
-      setPlayerCodes(newCodes);
-      
-      console.log('[GamePage] Generated new player codes:', {
-        codeCount: Object.keys(newCodes).length,
-        playerIds: Object.keys(newCodes),
-        firstFewCodes: Object.entries(newCodes).slice(0, 3).map(([id, code]) => `${id}: ${code}`)
-      });
-    } else {
-      console.log('[GamePage] Using existing player codes:', {
-        codeCount: Object.keys(playerCodes).length,
-        playerIds: Object.keys(playerCodes),
-        firstFewCodes: Object.entries(playerCodes).slice(0, 3).map(([id, code]) => `${id}: ${code}`)
-      });
-    }
-    
-    // Filter submissions with morals
-    const morals = gameState.round.submissions
-      .filter(s => s.moral !== null && s.moral !== undefined)
-      .map(s => ({
-        ...s,
-        displayName: playerCodes[s.playerId] || 'Anonymous Player' // Use player code instead of real name
-      }));
-    
-    console.log('[GamePage] Filtered submissions with morals:', {
-      inputSubmissionsCount: gameState.round.submissions.length,
-      filteredMoralsCount: morals.length,
-      morals: morals.map(m => ({
-        playerId: m.playerId,
-        hasMoral: !!m.moral,
-        displayName: m.displayName,
-        hasPlayerCode: !!playerCodes[m.playerId]
-      }))
-    });
-    
-    // Randomize the order
-    const shuffled = [...morals];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    
-    console.log('[GamePage] Shuffled submissions:', {
-      originalCount: morals.length,
-      shuffledCount: shuffled.length,
-      displayNames: shuffled.map(s => s.displayName)
-    });
-    
-    return shuffled;
   };
   
   // Helper function to get final results
@@ -537,7 +335,7 @@ const GamePage: React.FC = () => {
       case roundStatus.STORYTELLING:
         return 'Write Your Moral';
       case roundStatus.VOTING:
-        return 'Vote for Best Moral';
+        return 'Judge Picks Winner';
       case roundStatus.RESULTS:
         return 'Round Results';
       default:
@@ -566,9 +364,20 @@ const GamePage: React.FC = () => {
             <h2 className="text-xl font-heading font-bold text-gray-900">
               Round {gameState.round.number} of {gameState.settings.roundsToPlay}
             </h2>
-            <div>
-              <span className="text-gray-600 mr-2">Status:</span>
-              <span className="font-medium text-primary">{getRoundStatusText()}</span>
+            <div className="flex items-center gap-4">
+              {gameState.round.judgeId && (
+                <div className="flex items-center">
+                  <span className="text-gray-600 mr-1">Judge:</span>
+                  <Badge variant={playerId === gameState.round.judgeId ? "default" : "outline"}>
+                    {gameState.players.find(p => p.id === gameState.round.judgeId)?.name || '?'}
+                    {playerId === gameState.round.judgeId && ' (You)'}
+                  </Badge>
+                </div>
+              )}
+              <div>
+                <span className="text-gray-600 mr-2">Status:</span>
+                <span className="font-medium text-primary">{getRoundStatusText()}</span>
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -798,14 +607,17 @@ const GamePage: React.FC = () => {
                   onCardsRevealed={handleCardsRevealed}
                 />
                 
-                {!hasSubmittedMoral() && (
+                {playerId === gameState.round.judgeId ? (
+                  <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+                    <p className="text-amber-800 font-medium">You are the judge this round!</p>
+                    <p className="text-gray-600 mt-2">Sit back and wait for other players to submit their morals. You'll pick the winner.</p>
+                  </div>
+                ) : !hasSubmittedMoral() ? (
                   <MoralInput 
                     onSubmit={handleMoralSubmit}
                     maxLength={120}
                   />
-                )}
-                
-                {hasSubmittedMoral() && (
+                ) : (
                   <div className="p-4 bg-green-50 rounded-lg border border-green-200">
                     <p className="text-green-800 font-medium">Your moral has been submitted!</p>
                     <p className="text-gray-600 mt-2">Waiting for other players to submit their morals...</p>
@@ -816,20 +628,22 @@ const GamePage: React.FC = () => {
           )}
           
           {gameState.round.status === roundStatus.VOTING && (
-            // Voting View
+            // Judge Pick View
             <Card className="shadow-lg border-primary/20">
               <CardHeader className="bg-gradient-to-r from-primary/10 to-primary/5 border-b">
                 <CardTitle className="flex items-center">
-                  <span className="mr-2">Vote for the Best Moral</span>
+                  <span className="mr-2">Judge Picks Winner</span>
                   <Badge variant="outline" className="bg-primary/10">Round {gameState.round.number}</Badge>
                 </CardTitle>
                 <CardDescription>
-                  Choose the moral that best captures the essence of the story
+                  {playerId === gameState.round.judgeId
+                    ? 'Pick your favorite moral and explain why'
+                    : `Waiting for ${gameState.players.find(p => p.id === gameState.round.judgeId)?.name || 'the judge'} to pick the winner...`
+                  }
                 </CardDescription>
               </CardHeader>
               
               <CardContent className="p-6 space-y-6">
-                {/* Story Display */}
                 <Card className="border border-muted">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-base">The Story</CardTitle>
@@ -839,81 +653,99 @@ const GamePage: React.FC = () => {
                   </CardContent>
                 </Card>
                 
-                <div className="space-y-2">
-                  <h4 className="text-base font-medium">Choose your favorite moral:</h4>
-                  
-                  <div className="grid grid-cols-1 gap-3">
-                    {/* Show randomized submissions when available */}
-                    {(randomizedSubmissions.length > 0 ? randomizedSubmissions : gameState.round.submissions)
-                      .filter(submission => submission.moral !== null && submission.moral !== undefined)
-                      .map((submission) => {
-                        const player = gameState.players.find(p => p.id === submission.playerId);
-                        const isOwnMoral = submission.playerId === playerId;
-                        const isSelected = submission.playerId === selectedMoral;
-                        const hasVotedAlready = hasVoted();
-                        const displayName = (submission as any).displayName || 
-                                           (isOwnMoral ? player?.name : `Mystery ${playerCodes[submission.playerId] || 'Storyteller'}`);
-                        
-                        if (!player || !submission.moral) return null;
-                        
-                        return (
-                          <div 
-                          key={submission.playerId}
-                          className={`
-                            p-4 rounded-lg border transition-all
-                            ${isOwnMoral 
-                              ? 'bg-muted/50 border-muted cursor-not-allowed opacity-80'
-                              : isSelected
-                                ? 'bg-primary/5 border-2 border-primary shadow-md'
-                                : hasVotedAlready 
-                                  ? 'bg-background border-muted/50 cursor-not-allowed opacity-80'
-                                  : 'bg-background hover:bg-muted/20 border-muted/50 cursor-pointer hover:shadow-sm'
-                            }
-                          `}
-                          onClick={() => !isOwnMoral && !hasVotedAlready && handleVote(submission.playerId)}
-                        >
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="font-medium text-sm">
-                              {/* Show anonymous player labels during voting, except for the current player */}
-                              {isOwnMoral 
-                                ? (
-                                  <>
-                                    {player.name}
-                                    <Badge variant="outline" className="ml-2 text-xs">You</Badge>
-                                  </>
-                                ) 
-                                : (
-                                  <>
-                                    {displayName}
-                                    {player.isAI && <Badge variant="outline" className="ml-2 text-xs bg-muted/30">AI</Badge>}
-                                  </>
-                                )
-                              }
-                            </span>
-                            
-                            {isSelected && (
-                              <Badge className="bg-primary text-primary-foreground">Your Vote</Badge>
-                            )}
-                          </div>
+                {playerId === gameState.round.judgeId ? (
+                  <div className="space-y-4">
+                    <h4 className="text-base font-medium">Pick the winning moral:</h4>
+                    
+                    <div className="grid grid-cols-1 gap-3">
+                      {gameState.round.submissions
+                        .filter(s => s.moral !== null)
+                        .map((submission) => {
+                          const player = gameState.players.find(p => p.id === submission.playerId);
+                          const isSelected = submission.playerId === selectedWinnerId;
+                          if (!player || !submission.moral) return null;
                           
-                          <p className="text-sm italic break-words whitespace-normal">"{submission.moral}"</p>
-                          
-                          {isOwnMoral && (
-                            <div className="mt-2 text-xs text-muted-foreground">
-                              Your submission (you cannot vote for your own moral)
+                          return (
+                            <div 
+                              key={submission.playerId}
+                              className={cn(
+                                "p-4 rounded-lg border transition-all cursor-pointer",
+                                isSelected
+                                  ? "bg-primary/5 border-2 border-primary shadow-md"
+                                  : "bg-background hover:bg-muted/20 border-muted/50 hover:shadow-sm"
+                              )}
+                              onClick={() => setSelectedWinnerId(submission.playerId)}
+                            >
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="font-medium text-sm">
+                                  {player.name}
+                                  {player.isAI && <Badge variant="outline" className="ml-2 text-xs bg-muted/30">AI</Badge>}
+                                </span>
+                                {isSelected && (
+                                  <Badge className="bg-primary text-primary-foreground">Selected</Badge>
+                                )}
+                              </div>
+                              <p className="text-sm italic break-words whitespace-normal">"{submission.moral}"</p>
                             </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  
-                  {hasVoted() && (
-                    <div className="mt-4 p-3 bg-muted/20 rounded-lg text-center">
-                      <p className="text-sm">Vote recorded! Waiting for other players to vote...</p>
+                          );
+                        })}
                     </div>
-                  )}
-                </div>
+                    
+                    {selectedWinnerId && (
+                      <div className="space-y-3 pt-2">
+                        <label className="text-sm font-medium">Why did you pick this one?</label>
+                        <textarea
+                          className="w-full p-3 border rounded-lg text-sm resize-none focus:ring-2 focus:ring-primary/50 focus:outline-none"
+                          rows={2}
+                          maxLength={200}
+                          placeholder="Write your reason..."
+                          value={judgeReason}
+                          onChange={(e) => setJudgeReason(e.target.value)}
+                        />
+                        <Button
+                          className="bg-gradient-to-r from-primary to-primary/80"
+                          disabled={!judgeReason.trim()}
+                          onClick={handleJudgePick}
+                        >
+                          Confirm Winner
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <h4 className="text-base font-medium">Submitted morals:</h4>
+                    <div className="grid grid-cols-1 gap-3">
+                      {gameState.round.submissions
+                        .filter(s => s.moral !== null)
+                        .map((submission) => {
+                          const player = gameState.players.find(p => p.id === submission.playerId);
+                          const isOwnMoral = submission.playerId === playerId;
+                          if (!player || !submission.moral) return null;
+                          
+                          return (
+                            <div 
+                              key={submission.playerId}
+                              className={cn(
+                                "p-4 rounded-lg border bg-background",
+                                isOwnMoral && "border-primary/30 bg-primary/5"
+                              )}
+                            >
+                              <span className="font-medium text-sm">
+                                {player.name}
+                                {isOwnMoral && <Badge variant="outline" className="ml-2 text-xs">You</Badge>}
+                                {player.isAI && <Badge variant="outline" className="ml-2 text-xs bg-muted/30">AI</Badge>}
+                              </span>
+                              <p className="text-sm italic break-words whitespace-normal mt-1">"{submission.moral}"</p>
+                            </div>
+                          );
+                        })}
+                    </div>
+                    <div className="mt-4 p-3 bg-muted/20 rounded-lg text-center">
+                      <p className="text-sm">Waiting for the judge to pick the winner...</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
@@ -929,14 +761,12 @@ const GamePage: React.FC = () => {
                   </Badge>
                 </CardTitle>
                 <CardDescription className="text-white/80">
-                  See who won this round and the points awarded
+                  {gameState.players.find(p => p.id === gameState.round.judgeId)?.name || 'The judge'} has spoken
                 </CardDescription>
               </CardHeader>
               
               <CardContent className="p-6 space-y-6">
-                {/* Story Display with TV Narrator side by side */}
                 <div className="flex flex-col md:flex-row gap-4 items-start">
-                  {/* Story Card (70% width on desktop) */}
                   <Card className="border border-muted relative flex-1 md:w-[70%] w-full">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base">The Story</CardTitle>
@@ -946,7 +776,6 @@ const GamePage: React.FC = () => {
                     </CardContent>
                   </Card>
                   
-                  {/* TV Narrator Image (30% width on desktop) */}
                   <div className="md:w-[30%] w-full flex justify-center md:justify-end">
                     <div className="w-40 h-40 md:w-52 md:h-52 relative">
                       <img 
@@ -958,6 +787,18 @@ const GamePage: React.FC = () => {
                   </div>
                 </div>
                 
+                {/* Judge's reason */}
+                {gameState.round.judgeReason && (
+                  <Card className="border border-amber-200 bg-amber-50">
+                    <CardContent className="p-4">
+                      <p className="text-sm font-medium text-amber-800 mb-1">
+                        {gameState.players.find(p => p.id === gameState.round.judgeId)?.name || 'The judge'} says:
+                      </p>
+                      <p className="text-sm italic text-amber-900 break-words whitespace-normal">"{gameState.round.judgeReason}"</p>
+                    </CardContent>
+                  </Card>
+                )}
+                
                 <div className="space-y-3">
                   <h4 className="text-base font-medium flex items-center">
                     <span className="mr-2">Moral Results</span>
@@ -967,14 +808,11 @@ const GamePage: React.FC = () => {
                   </h4>
                   
                   <div className="space-y-3">
-                    {/* Sort submissions by votes (highest first) */}
+                    {/* Show winner first, then the rest */}
                     {[...gameState.round.submissions]
-                      .sort((a, b) => b.votes - a.votes)
+                      .sort((a, b) => (b.isWinner ? 1 : 0) - (a.isWinner ? 1 : 0))
                       .map((submission) => {
                         const player = gameState.players.find(p => p.id === submission.playerId);
-                        // Find highest vote count
-                        const highestVotes = Math.max(...gameState.round.submissions.map(s => s.votes));
-                        const isWinner = submission.votes > 0 && submission.votes === highestVotes;
                         const isOwnMoral = submission.playerId === playerId;
                         
                         if (!player || !submission.moral) return null;
@@ -984,16 +822,16 @@ const GamePage: React.FC = () => {
                             key={submission.playerId}
                             className={cn(
                               "border overflow-hidden transition-all",
-                              isWinner && "shadow-md border-primary/50",
-                              isOwnMoral && !isWinner && "border-muted/80"
+                              submission.isWinner && "shadow-md border-primary/50",
+                              isOwnMoral && !submission.isWinner && "border-muted/80"
                             )}
                           >
-                            {isWinner && (
+                            {submission.isWinner && (
                               <div className="bg-gradient-to-r from-primary/90 to-primary/70 text-white px-4 py-1 flex items-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                                   <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                 </svg>
-                                <span className="text-sm font-medium">Winner</span>
+                                <span className="text-sm font-medium">Winner — +1 point</span>
                               </div>
                             )}
                             <div className="p-4">
@@ -1004,18 +842,6 @@ const GamePage: React.FC = () => {
                                     {isOwnMoral && <Badge variant="outline" className="ml-2 text-xs">You</Badge>}
                                     {player.isAI && <Badge variant="outline" className="ml-2 text-xs bg-muted/30">AI</Badge>}
                                   </span>
-                                </div>
-                                
-                                <div>
-                                  {isWinner ? (
-                                    <Badge className="bg-primary text-primary-foreground">
-                                      +{submission.votes} points
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="outline">
-                                      {submission.votes} {submission.votes === 1 ? 'vote' : 'votes'}
-                                    </Badge>
-                                  )}
                                 </div>
                               </div>
                               <p className="text-sm italic break-words whitespace-normal">"{submission.moral}"</p>

@@ -5,7 +5,6 @@ import {
   Card as UICard,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle
 } from '@/components/ui/card';
@@ -13,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 // Import the simplified card implementation
 import { GameCard, CardBack, normalizeCardType, getCardType } from '@/components/card-simple';
-import { PlayIcon, PauseIcon, FlameIcon, EyeIcon } from 'lucide-react';
+import { PlayIcon, PauseIcon, FlameIcon } from 'lucide-react';
 
 interface StoryDisplayProps {
   story: string;
@@ -541,75 +540,6 @@ export function MoralInput({
           </button>
         </form>
       </CardContent>
-    </UICard>
-  );
-}
-
-interface MoralSubmissionProps {
-  playerName: string;
-  moral: string;
-  votes: number;
-  isCurrentPlayer?: boolean;
-  onVote?: () => void;
-  canVote?: boolean;
-  className?: string;
-}
-
-/**
- * Component for displaying a player's moral submission
- */
-export function MoralSubmission({
-  playerName,
-  moral,
-  votes,
-  isCurrentPlayer = false,
-  onVote,
-  canVote = false,
-  className
-}: MoralSubmissionProps) {
-  return (
-    <UICard className={cn(
-      "w-full transition-shadow", 
-      isCurrentPlayer ? "ring-1 ring-primary" : "",
-      className
-    )}>
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <CardTitle className="text-base">
-              {playerName}
-              {isCurrentPlayer && <Badge className="ml-2 text-xs">You</Badge>}
-            </CardTitle>
-          </div>
-          <Badge variant="outline" className="text-xs">
-            {votes} {votes === 1 ? 'vote' : 'votes'}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="pb-0">
-        <p className="text-sm italic break-words whitespace-normal">"{moral}"</p>
-      </CardContent>
-      <CardFooter className="pt-2">
-        {canVote && (
-          <button
-            onClick={onVote}
-            className="ml-auto py-1.5 px-4 bg-primary text-primary-foreground text-xs rounded shadow-sm
-              hover:bg-primary/90 hover:shadow transition-all duration-300 flex items-center gap-1.5 font-medium"
-          >
-            <EyeIcon size={14} /> Vote for this moral
-          </button>
-        )}
-        {!canVote && !isCurrentPlayer && (
-          <div className="ml-auto text-xs text-muted-foreground">
-            {votes > 0 ? "Thanks for voting!" : "Voting will be enabled soon"}
-          </div>
-        )}
-        {isCurrentPlayer && (
-          <div className="ml-auto text-xs text-muted-foreground">
-            You cannot vote for your own moral
-          </div>
-        )}
-      </CardFooter>
     </UICard>
   );
 }

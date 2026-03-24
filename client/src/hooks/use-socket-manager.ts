@@ -19,7 +19,7 @@ export enum MessageType {
   SELECT_CARD = 'selectCard',
   UPDATE_CUSTOM_CARD = 'updateCustomCard',
   SUBMIT_MORAL = 'submitMoral',
-  CAST_VOTE = 'castVote',
+  JUDGE_PICK = 'judgePick',
   NEXT_ROUND = 'nextRound',
   LEAVE_GAME = 'leaveGame',
   GAME_STATE = 'gameState',
@@ -118,7 +118,7 @@ export function useSocketManager() {
             playerId: s.playerId,
             cardId: s.cardId,
             hasMoral: !!s.moral,
-            votes: Array.isArray(s.votes) ? s.votes.length : s.votes || 0
+            isWinner: s.isWinner
           }))
         });
       }
@@ -168,15 +168,16 @@ export function useSocketManager() {
           setTemporaryCardSelection(null);
         }
         
-        // Log specific information for voting phase
+        // Log specific information for judging phase
         if (game.round.status === 'voting') {
-          console.log('[useSocketManager] Voting phase details:', {
+          console.log('[useSocketManager] Judging phase details:', {
             roundNumber: game.round.number,
+            judgeId: game.round.judgeId,
             submissions: game.round.submissions.map(s => ({
               playerId: s.playerId,
               hasMoral: !!s.moral,
-              moralExcerpt: s.moral ? `${s.moral.substring(0, 20)}...` : null, 
-              votes: Array.isArray(s.votes) ? s.votes : (typeof s.votes === 'number' ? s.votes : 0)
+              moralExcerpt: s.moral ? `${s.moral.substring(0, 20)}...` : null,
+              isWinner: s.isWinner
             }))
           });
         }
@@ -418,20 +419,20 @@ export function useSocketManager() {
   }, [toast]);
   
   /**
-   * Cast a vote for another player's moral
+   * Judge picks the winning moral
    */
-  const castVote = useCallback(async (gameId: string, votedForId: string): Promise<SocketResponse> => {
+  const judgePick = useCallback(async (gameId: string, winnerId: string, reason: string): Promise<SocketResponse> => {
     try {
-      console.log(`[useSocketManager] Casting vote for player ${votedForId} in game ${gameId}`);
-      const response = await socketManager.emit<SocketResponse>(MessageType.CAST_VOTE, { gameId, votedForId });
+      console.log(`[useSocketManager] Judge picking winner ${winnerId} in game ${gameId}`);
+      const response = await socketManager.emit<SocketResponse>(MessageType.JUDGE_PICK, { gameId, winnerId, reason });
       
-      console.log('[useSocketManager] Cast vote response:', response);
+      console.log('[useSocketManager] Judge pick response:', response);
       return response;
     } catch (error) {
-      console.error('[useSocketManager] Error casting vote:', error);
+      console.error('[useSocketManager] Error in judge pick:', error);
       
       toast({
-        title: 'Error Casting Vote',
+        title: 'Error Picking Winner',
         description: error instanceof Error ? error.message : 'Unknown error',
         variant: 'destructive',
       });
@@ -536,7 +537,7 @@ export function useSocketManager() {
     confirmCardSelection, // Function to actually submit the card
     updateCustomCard,
     submitMoral,
-    castVote,
+    judgePick,
     nextRound,
     leaveGame,
     connect,

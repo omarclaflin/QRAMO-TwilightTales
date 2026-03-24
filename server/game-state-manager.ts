@@ -13,7 +13,7 @@ import {
   generateAIMoral,
   generateAIPlayerName,
   generateAIPlayerNameForPersonality,
-  simulateAIVote,
+  generateAIJudgment,
 } from "./ai-service";
 import type { AIPersonality } from "./ai-service";
 
@@ -124,11 +124,13 @@ class GameStateManager {
         number: 0,
         status: roundStatus.WAITING,
         story: "",
+        judgeId: "",
+        judgeReason: null,
         submissions: [],
       },
       settings: {
         maxPlayers: 5,
-        roundsToPlay: 3,
+        roundsToPlay: 5,
       },
     };
 
@@ -324,7 +326,22 @@ class GameStateManager {
     const previousStatus = game.round.status;
     game.round.status = roundStatus.SELECTION;
     game.round.story = "";
-    game.round.submissions = [];  // Will be populated in assembleStory
+    game.round.judgeReason = null;
+    game.round.submissions = [];
+
+    // Pick judge: random for round 1, rotate for subsequent rounds
+    const prevJudgeId = game.round.judgeId;
+    if (!prevJudgeId || game.round.number === 1) {
+      const randomIdx = Math.floor(Math.random() * game.players.length);
+      game.round.judgeId = game.players[randomIdx].id;
+    } else {
+      const prevIdx = game.players.findIndex((p) => p.id === prevJudgeId);
+      const nextIdx = (prevIdx + 1) % game.players.length;
+      game.round.judgeId = game.players[nextIdx].id;
+    }
+
+    const judge = game.players.find((p) => p.id === game.round.judgeId);
+    console.log(`[game-state-manager] Judge for round ${game.round.number}: ${judge?.name} (${game.round.judgeId})`);
 
     console.log(`[game-state-manager] Reset round state:`, {
       previousStatus,
@@ -332,45 +349,14 @@ class GameStateManager {
       prevSubmissionsCount: previousSubmissions.length,
       newSubmissionsCount: game.round.submissions.length,
       roundNumber: game.round.number,
+      judgeId: game.round.judgeId,
     });
 
-    // Reset player selections and voting status for the new round
+    // Reset player state for the new round
     game.players.forEach((player) => {
-      const previousSelection = player.selectedCard;
-      const previousMoral = player.submittedMoral;
-      const previousVoteStatus = player.hasVoted;
-
-      // Reset all player state for the new round
       player.selectedCard = null;
       player.submittedMoral = null;
-      player.hasVoted = false;
       player.isThinking = false;
-
-      console.log(`[game-state-manager] Reset player ${player.name}:`, {
-        playerId: player.id,
-        roundNumber: game.round.number,
-        previousSelection,
-        previousMoral: previousMoral ? "had moral" : null,
-        previousVoteStatus,
-        newSelection: player.selectedCard,
-        newMoral: player.submittedMoral,
-        hasVoted: player.hasVoted,
-      });
-      
-      // Critical fix: Ensure any lingering submission objects from previous round don't cause issues
-      if (previousSubmissions.length > 0) {
-        const previousPlayerSubmission = previousSubmissions.find(s => s.playerId === player.id);
-        if (previousPlayerSubmission) {
-          // Log the previous submission state for debugging
-          console.log(`[game-state-manager] Previous submission state for player ${player.name}:`, {
-            playerId: player.id,
-            roundNumber: game.round.number,
-            hadMoral: !!previousPlayerSubmission.moral,
-            wasVoted: previousPlayerSubmission.hasVoted,
-            votes: previousPlayerSubmission.votes,
-          });
-        }
-      }
     });
 
     // Assign card types to players
@@ -790,14 +776,15 @@ class GameStateManager {
 
     game.round.story = `In a ${location}, a ${lcFirst(character)} notices ${lcFirst(twist)}. But then, ${lcFirst(escalation)} — all because ${lcFirst(finalTwist)}.`;
 
-    // Initialize submissions for each player
-    game.round.submissions = game.players.map((player) => ({
-      playerId: player.id,
-      cardId: player.selectedCard || 0,
-      moral: null,
-      votes: 0,
-      hasVoted: false // Explicitly initialize hasVoted as false
-    }));
+    // Initialize submissions for each non-judge player
+    game.round.submissions = game.players
+      .filter((player) => player.id !== game.round.judgeId)
+      .map((player) => ({
+        playerId: player.id,
+        cardId: player.selectedCard || 0,
+        moral: null,
+        isWinner: false,
+      }));
 
     console.log(`Assembled story for game ${game.gameId}: ${game.round.story}`);
   }
@@ -823,6 +810,12 @@ class GameStateManager {
       return false;
     }
 
+    // Reject if caller is the judge
+    if (playerId === game.round.judgeId) {
+      console.error(`Player ${playerId} is the judge and cannot submit a moral`);
+      return false;
+    }
+
     // Find the player
     const player = game.players.find((p) => p.id === playerId);
     if (!player) {
@@ -841,7 +834,6 @@ class GameStateManager {
       return false;
     }
 
-    // Update the submission with the moral
     submission.moral = moral;
     player.submittedMoral = moral;
 
@@ -849,35 +841,21 @@ class GameStateManager {
       `Player ${playerId} submitted moral in game ${gameId}: ${moral}`,
     );
 
-    // Check if all players have submitted a moral
+    // Check if all non-judge submissions have morals
     const allSubmissionsHaveMorals = game.round.submissions.every(
       (s) => s.moral !== null,
     );
-    const allPlayersHaveMorals = game.players.every(
-      (p) => p.submittedMoral !== null && p.submittedMoral !== undefined,
-    );
 
-    if (allSubmissionsHaveMorals && allPlayersHaveMorals) {
-      // Move to the voting phase
+    if (allSubmissionsHaveMorals) {
       game.round.status = roundStatus.VOTING;
       console.log(
-        `All players in game ${gameId} have submitted morals. Moving to voting phase automatically.`,
+        `All non-judge players in game ${gameId} have submitted morals. Moving to judging phase.`,
       );
     } else {
-      // Log detailed diagnostic information
-      const playersWithoutMorals = game.players
-        .filter((p) => !p.submittedMoral)
-        .map((p) => `${p.name}(${p.id})`);
       const submissionsWithoutMorals = game.round.submissions
         .filter((s) => s.moral === null)
         .map((s) => s.playerId);
-      console.log(`Not all morals submitted yet in game ${gameId}:`);
-      console.log(
-        `- Players without morals (${playersWithoutMorals.length}): ${playersWithoutMorals.join(", ")}`,
-      );
-      console.log(
-        `- Submissions without morals (${submissionsWithoutMorals.length}): ${submissionsWithoutMorals.join(", ")}`,
-      );
+      console.log(`Not all morals submitted yet in game ${gameId}: waiting on ${submissionsWithoutMorals.length}`);
     }
 
     return true;
@@ -930,17 +908,17 @@ class GameStateManager {
         "The moral of the story is: Sometimes the only winning move is to unplug and go for a walk.",
       ];
 
-      // Count AI players that need morals
+      // Count AI players that need morals (excluding judge)
       const aiPlayersNeedingMorals = game.players.filter(
-        (p) => p.isAI && !p.submittedMoral,
+        (p) => p.isAI && !p.submittedMoral && p.id !== game.round.judgeId,
       ).length;
       console.log(
         `[game-state-manager] AI players needing morals: ${aiPlayersNeedingMorals}`,
       );
 
-      // Generate morals for AI players
+      // Generate morals for AI players (skip judge)
       for (const player of game.players) {
-        if (player.isAI) {
+        if (player.isAI && player.id !== game.round.judgeId) {
           if (!player.submittedMoral) {
             console.log(
               `[game-state-manager] Generating moral for AI player ${player.name} (${player.id})`,
@@ -996,79 +974,28 @@ class GameStateManager {
         }
       }
 
-      // Verify all AI players have morals now
-      const aiPlayersWithMorals = game.players.filter(
-        (p) => p.isAI && p.submittedMoral,
-      ).length;
-      const aiPlayersTotal = game.players.filter((p) => p.isAI).length;
-      console.log(
-        `[game-state-manager] AI players with morals after generation: ${aiPlayersWithMorals}/${aiPlayersTotal}`,
-      );
-
-      // Check if all human players have also submitted their morals
-      const humanPlayersWithMorals = game.players.filter(
-        (p) => !p.isAI && p.submittedMoral,
-      ).length;
-      const humanPlayersTotal = game.players.filter((p) => !p.isAI).length;
-      console.log(
-        `[game-state-manager] Human players with morals: ${humanPlayersWithMorals}/${humanPlayersTotal}`,
-      );
-
-      // Check if all submissions have morals too
+      // Check if all submissions have morals (submissions already exclude judge)
       const allSubmissionsHaveMorals = game.round.submissions.every(
         (s) => s.moral !== null,
       );
-      const submissionsWithoutMorals = game.round.submissions.filter(
-        (s) => s.moral === null,
-      ).length;
 
       console.log(
-        `[game-state-manager] Submissions with morals: ${game.round.submissions.length - submissionsWithoutMorals}/${game.round.submissions.length}`,
+        `[game-state-manager] Submissions with morals: ${game.round.submissions.filter(s => s.moral !== null).length}/${game.round.submissions.length}`,
       );
 
-      // Only advance to voting if all humans have submitted morals AND all submissions have morals
-      if (
-        humanPlayersWithMorals === humanPlayersTotal &&
-        allSubmissionsHaveMorals
-      ) {
+      if (allSubmissionsHaveMorals) {
         game.round.status = roundStatus.VOTING;
         console.log(
-          `[game-state-manager] All players and submissions have morals. Game ${gameId} advanced to voting phase.`,
-        );
-      } else {
-        // Print which human players haven't submitted morals yet
-        const humanPlayersWithoutMorals = game.players
-          .filter((p) => !p.isAI && !p.submittedMoral)
-          .map((p) => `${p.name}(${p.id})`)
-          .join(", ");
-
-        // Also print submissions without morals
-        const submissionsWithoutMoralsDetails = game.round.submissions
-          .filter((s) => s.moral === null)
-          .map((s) => {
-            const player = game.players.find((p) => p.id === s.playerId);
-            return `${player?.name || "Unknown"}(${s.playerId})`;
-          })
-          .join(", ");
-
-        console.log(
-          `[game-state-manager] Waiting for human players to submit morals: ${humanPlayersWithoutMorals}`,
-        );
-        console.log(
-          `[game-state-manager] Submissions missing morals: ${submissionsWithoutMoralsDetails}`,
+          `[game-state-manager] All submissions have morals. Game ${gameId} advanced to judging phase.`,
         );
       }
 
-      // Extra verification - make sure all AI players have morals
-      // We don't apply this failsafe to human players, as they need to submit their own morals
+      // Failsafe: make sure all non-judge AI players have morals
       let fixedCount = 0;
       game.players.forEach((player) => {
-        if (player.isAI && !player.submittedMoral) {
-          // Assign a default moral as failsafe for AI players only
+        if (player.isAI && player.id !== game.round.judgeId && !player.submittedMoral) {
           const defaultMoral = "The moral is: some stories write themselves.";
           player.submittedMoral = defaultMoral;
-
-          // Find and update the submission too
           const submission = game.round.submissions.find(
             (s) => s.playerId === player.id,
           );
@@ -1085,14 +1012,6 @@ class GameStateManager {
         );
       }
 
-      // Final verification - AI players should all have morals now
-      const allAIPlayersWithMorals = game.players
-        .filter((p) => p.isAI)
-        .every((p) => p.submittedMoral);
-      console.log(
-        `[game-state-manager] Final verification - all AI players have morals: ${allAIPlayersWithMorals}`,
-      );
-
       console.log(
         `[game-state-manager] END generateAIMorals for game ${gameId}, final round status: ${game.round.status}`,
       );
@@ -1101,425 +1020,75 @@ class GameStateManager {
         `[game-state-manager] ERROR in generateAIMorals for game ${gameId}:`,
         error,
       );
-
-      // Last-resort recovery - try to get the game and force it to voting phase
-      try {
-        const gameToFix = this.games.get(gameId);
-        if (gameToFix) {
-          gameToFix.round.status = roundStatus.VOTING;
-          console.log(
-            `[game-state-manager] EMERGENCY forced game ${gameId} to voting phase after error`,
-          );
-        }
-      } catch (recoveryError) {
-        console.error(
-          `[game-state-manager] Failed even emergency recovery:`,
-          recoveryError,
-        );
-      }
     }
   }
 
   /**
-   * Process a player's vote
-   * @param gameId - The game ID
-   * @param voterId - The voting player's ID
-   * @param votedForId - The ID of the player voted for
-   * @returns Success status
+   * Judge picks the winning moral
    */
-  castVote(gameId: string, voterId: string, votedForId: string): boolean {
-    console.log(
-      `[game-state-manager] BEGIN castVote for game ${gameId}, voter ${voterId}, voted for ${votedForId}`,
-    );
+  judgePickWinner(gameId: string, judgeId: string, winnerId: string, reason: string): boolean {
     const game = this.games.get(gameId);
-
     if (!game) {
       console.error(`[game-state-manager] Game not found: ${gameId}`);
       return false;
     }
 
-    // Check if the game is in the voting phase
     if (game.round.status !== roundStatus.VOTING) {
-      console.error(
-        `[game-state-manager] Game ${gameId} is not in voting phase, current status: ${game.round.status}`,
-      );
+      console.error(`[game-state-manager] Game ${gameId} is not in judging phase`);
       return false;
     }
 
-    // Find the players
-    const voter = game.players.find((p) => p.id === voterId);
-    const votedFor = game.players.find((p) => p.id === votedForId);
-
-    if (!voter || !votedFor) {
-      console.error(`[game-state-manager] Players not found in game ${gameId}`);
+    if (game.round.judgeId !== judgeId) {
+      console.error(`[game-state-manager] Player ${judgeId} is not the judge`);
       return false;
     }
 
-    // Check if the voter is trying to vote for themselves
-    if (voterId === votedForId) {
-      console.error(
-        `[game-state-manager] Player ${voterId} cannot vote for themselves`,
-      );
+    const winnerSubmission = game.round.submissions.find((s) => s.playerId === winnerId);
+    if (!winnerSubmission) {
+      console.error(`[game-state-manager] Submission for winner ${winnerId} not found`);
       return false;
     }
 
-    // Find the submission being voted for
-    const submission = game.round.submissions.find(
-      (s) => s.playerId === votedForId,
-    );
-    if (!submission) {
-      console.error(
-        `[game-state-manager] Submission for player ${votedForId} not found in game ${gameId}`,
-      );
-      return false;
+    winnerSubmission.isWinner = true;
+    game.round.judgeReason = reason;
+
+    const winner = game.players.find((p) => p.id === winnerId);
+    if (winner) {
+      winner.score += 1;
+      console.log(`[game-state-manager] Player ${winner.name} wins round ${game.round.number}, score now ${winner.score}`);
     }
 
-    // Find the voter's submission to mark that they've voted
-    const voterSubmission = game.round.submissions.find(
-      (s) => s.playerId === voterId,
-    );
-    if (voterSubmission) {
-      // Mark that this player has cast their vote
-      voterSubmission.hasVoted = true;
-      
-      // Also mark the player as having voted for consistency
-      voter.hasVoted = true;
-      
-      console.log(
-        `[game-state-manager] Marked player ${voterId} as having voted`,
-      );
-    } else {
-      console.warn(
-        `[game-state-manager] Could not find submission for voter ${voterId}`,
-      );
-    }
+    game.round.status = roundStatus.RESULTS;
 
-    // Increment the vote count for the voted-for player
-    submission.votes++;
-
-    const isHuman = !votedFor.isAI;
-    console.log(
-      `[game-state-manager] Player ${voterId} voted for ${votedForId}'s moral (${isHuman ? "Human" : "AI"}) in game ${gameId}`,
-    );
-
-    // Count how many players have voted
-    const playersWithMorals = game.round.submissions.filter(
-      (s) => s.moral !== null,
-    ).length;
-    const playersWhoVoted = game.round.submissions.filter(
-      (s) => s.hasVoted,
-    ).length;
-
-    console.log(
-      `[game-state-manager] Voting progress: ${playersWhoVoted}/${playersWithMorals} players have voted`,
-    );
-
-    // Check if all human players have voted
-    const humanPlayers = game.players.filter((p) => !p.isAI);
-    const humanPlayersWhoVoted = game.round.submissions.filter((s) => {
-      const player = game.players.find((p) => p.id === s.playerId);
-      return player && !player.isAI && s.hasVoted;
-    }).length;
-
-    console.log(
-      `[game-state-manager] Human voting progress: ${humanPlayersWhoVoted}/${humanPlayers.length}`,
-    );
-
-    if (humanPlayersWhoVoted >= humanPlayers.length) {
-      console.log(
-        `[game-state-manager] All human players have voted in game ${gameId}, handling AI votes and round end`,
-      );
-      // Have AI players cast their votes with simulated thinking time
-      this.makeAIVotes(game);
-
-      // Use a shorter delay to improve game flow
-      setTimeout(() => {
-        console.log(
-          `[game-state-manager] Ending round after AI voting delay for game ${gameId}`,
-        );
-        // End the round and update game status
-        this.endRound(gameId);
-
-        // Note: Broadcast will need to be handled by the caller (socket-handler)
-        console.log(
-          `[game-state-manager] Round ended for game ${gameId}, final status: ${game.round.status}`,
-        );
-      }, 2000); // Shorter 2 second delay after last human vote
+    if (game.round.number >= game.settings.roundsToPlay) {
+      game.status = gameStatus.COMPLETED;
+      console.log(`[game-state-manager] Game ${gameId} completed after round ${game.round.number}`);
     }
 
     return true;
   }
 
   /**
-   * Have AI players cast their votes with simulated thinking time
-   * @param game - The game object
+   * Trigger AI judgment when the judge is an AI player
    */
-  private makeAIVotes(game: Game): void {
-    console.log(
-      `[game-state-manager] BEGIN makeAIVotes for game ${game.gameId}`,
-    );
-    const aiPlayers = game.players.filter((p) => p.isAI);
-    console.log(
-      `[game-state-manager] Processing votes for ${aiPlayers.length} AI players`,
-    );
+  async triggerAIJudgment(gameId: string): Promise<boolean> {
+    const game = this.games.get(gameId);
+    if (!game) return false;
 
-    // Stagger AI votes with small delays for more natural feeling
-    aiPlayers.forEach((aiPlayer, index) => {
-      // Small staggered delays (100-400ms) for each AI vote to seem natural
-      setTimeout(() => {
-        // First mark the AI as thinking about its vote
-        aiPlayer.isThinking = true;
-        console.log(
-          `[game-state-manager] AI player ${aiPlayer.name} (${aiPlayer.id}) is thinking about their vote`,
-        );
+    const judge = game.players.find((p) => p.id === game.round.judgeId);
+    if (!judge || !judge.isAI) return false;
 
-        // Short simulated decision time
-        setTimeout(
-          () => {
-            // Find AI player's submission to mark that they've voted
-            const aiSubmission = game.round.submissions.find(
-              (s) => s.playerId === aiPlayer.id,
-            );
-            if (aiSubmission) {
-              // Mark that this AI player has cast their vote
-              aiSubmission.hasVoted = true;
-              
-              // Also mark the player as having voted for consistency
-              aiPlayer.hasVoted = true;
-              
-              console.log(
-                `[game-state-manager] Marked AI player ${aiPlayer.id} as having voted`,
-              );
-            } else {
-              console.warn(
-                `[game-state-manager] Could not find submission for AI player ${aiPlayer.id}`,
-              );
-            }
+    const morals = game.round.submissions
+      .filter((s) => s.moral !== null)
+      .map((s) => ({ playerId: s.playerId, moral: s.moral! }));
 
-            // Simulate AI vote using the weighted algorithm with preference for human players
-            const votedForId = simulateAIVote(
-              game.round.submissions,
-              aiPlayer.id,
-              game.players,
-            );
+    if (morals.length === 0) return false;
 
-            if (votedForId) {
-              // Find the submission being voted for
-              const submission = game.round.submissions.find(
-                (s) => s.playerId === votedForId,
-              );
-              if (submission) {
-                // Find player that's being voted for
-                const votedForPlayer = game.players.find(
-                  (p) => p.id === votedForId,
-                );
-                const isHuman = votedForPlayer && !votedForPlayer.isAI;
+    const personality = (judge.personality as AIPersonality) || 'qramo';
+    console.log(`[game-state-manager] AI judge ${judge.name} (${personality}) deliberating...`);
 
-                // Increment the vote count
-                const oldVotes = submission.votes;
-                submission.votes++;
-
-                // AI is no longer thinking
-                aiPlayer.isThinking = false;
-
-                console.log(
-                  `[game-state-manager] AI player ${aiPlayer.name} (${aiPlayer.id}) voted for ${votedForId}'s moral (${isHuman ? "Human" : "AI"}), votes increased from ${oldVotes} to ${submission.votes}`,
-                );
-              } else {
-                console.warn(
-                  `[game-state-manager] Could not find submission for votedForId ${votedForId}`,
-                );
-              }
-            } else {
-              console.warn(
-                `[game-state-manager] AI player ${aiPlayer.id} could not find a valid player to vote for`,
-              );
-            }
-          },
-          500 + Math.random() * 500,
-        ); // Random "thinking" time between 500-1000ms
-      }, index * 200); // Stagger each AI vote by 200ms
-    });
-
-    console.log(
-      `[game-state-manager] END makeAIVotes - All AI votes scheduled for game ${game.gameId}`,
-    );
-  }
-
-  /**
-   * End the current round and calculate scores
-   * @param gameId - The game ID
-   */
-  endRound(gameId: string): void {
-    console.log(`[game-state-manager] BEGIN endRound for game ${gameId}`);
-
-    try {
-      const game = this.games.get(gameId);
-
-      if (!game) {
-        console.error(
-          `[game-state-manager] Game not found in endRound: ${gameId}`,
-        );
-        return;
-      }
-
-      console.log(
-        `[game-state-manager] Detailed game state at start of endRound:`,
-        {
-          gameId: game.gameId,
-          status: game.status,
-          roundNumber: game.round.number,
-          roundStatus: game.round.status,
-          playersCount: game.players.length,
-          submissionsCount: game.round.submissions.length,
-          submissionsWithVotes: game.round.submissions.filter(
-            (s) => s.votes > 0,
-          ).length,
-          playerScores: game.players.map((p) => ({
-            id: p.id,
-            name: p.name,
-            score: p.score,
-          })),
-          submissionDetails: game.round.submissions.map((s) => ({
-            playerId: s.playerId,
-            moralExists: s.moral !== null,
-            votes: s.votes,
-            hasVoted: s.hasVoted || false,
-          })),
-        },
-      );
-
-      // Verify we're in voting phase
-      if (game.round.status !== roundStatus.VOTING) {
-        console.warn(
-          `[game-state-manager] Attempted to end round for game ${gameId} while not in VOTING phase. Current status: ${game.round.status}`,
-        );
-
-        // Force to voting first, then continue to results
-        if (game.round.status !== roundStatus.RESULTS) {
-          console.log(
-            `[game-state-manager] Forcing game ${gameId} to voting phase before proceeding to results`,
-          );
-          game.round.status = roundStatus.VOTING;
-        } else {
-          console.log(
-            `[game-state-manager] Game ${gameId} already in RESULTS phase, no action needed`,
-          );
-          return; // Already in results phase, exit to avoid double scoring
-        }
-      }
-
-      // Calculate and log initial scores
-      const scoresBefore = game.players.map((p) => ({
-        id: p.id,
-        name: p.name,
-        score: p.score,
-      }));
-
-      console.log(
-        `[game-state-manager] Player scores before calculation:`,
-        scoresBefore,
-      );
-
-      // Calculate scores
-      game.round.submissions.forEach((submission) => {
-        const player = game.players.find((p) => p.id === submission.playerId);
-        if (player) {
-          // Add points for votes received
-          const oldScore = player.score;
-          player.score += submission.votes;
-          console.log(
-            `[game-state-manager] Player ${player.name} (${player.id}) received ${submission.votes} votes, score updated from ${oldScore} to ${player.score}`,
-          );
-        } else {
-          console.warn(
-            `[game-state-manager] Could not find player ${submission.playerId} for submission during score calculation`,
-          );
-        }
-      });
-
-      // Print all players' scores for verification
-      const scoresAfter = game.players.map((p) => ({
-        id: p.id,
-        name: p.name,
-        score: p.score,
-      }));
-
-      console.log(
-        `[game-state-manager] Player scores after calculation:`,
-        scoresAfter,
-      );
-
-      // Move to the Results phase
-      const oldStatus = game.round.status;
-      game.round.status = roundStatus.RESULTS;
-      console.log(
-        `[game-state-manager] Changed round status from ${oldStatus} to ${game.round.status}`,
-      );
-
-      // Check if the game is over
-      if (game.round.number >= game.settings.roundsToPlay) {
-        // Mark the game as completed (but we'll still show results UI first)
-        const oldGameStatus = game.status;
-        game.status = gameStatus.COMPLETED;
-        console.log(
-          `[game-state-manager] Game ${gameId} status changed from ${oldGameStatus} to ${game.status} after completing ${game.round.number}/${game.settings.roundsToPlay} rounds`,
-        );
-      } else {
-        console.log(
-          `[game-state-manager] Round ${game.round.number} ended for game ${gameId}, showing results before next round (${game.round.number + 1}/${game.settings.roundsToPlay})`,
-        );
-      }
-
-      // Final verification of game state
-      console.log(`[game-state-manager] Final game state after endRound:`, {
-        gameId: game.gameId,
-        status: game.status,
-        roundNumber: game.round.number,
-        roundStatus: game.round.status,
-        playersCount: game.players.length,
-        submissionsCount: game.round.submissions.length,
-        playerFinalScores: game.players.map((p) => ({
-          id: p.id,
-          name: p.name,
-          score: p.score,
-        })),
-      });
-
-      console.log(`[game-state-manager] END endRound for game ${gameId}`);
-    } catch (error) {
-      console.error(
-        `[game-state-manager] ERROR in endRound for game ${gameId}:`,
-        error,
-      );
-
-      // Emergency recovery - try to force the game to results phase
-      try {
-        const gameToFix = this.games.get(gameId);
-        if (gameToFix) {
-          gameToFix.round.status = roundStatus.RESULTS;
-          console.log(
-            `[game-state-manager] EMERGENCY forced game ${gameId} to results phase after error`,
-          );
-
-          console.log(`[game-state-manager] Emergency recovery game state:`, {
-            gameId: gameToFix.gameId,
-            status: gameToFix.status,
-            roundNumber: gameToFix.round.number,
-            roundStatus: gameToFix.round.status,
-          });
-        } else {
-          console.error(
-            `[game-state-manager] Could not perform emergency recovery: game ${gameId} not found`,
-          );
-        }
-      } catch (recoveryError) {
-        console.error(
-          `[game-state-manager] Failed emergency recovery in endRound:`,
-          recoveryError,
-        );
-      }
-    }
+    const result = await generateAIJudgment(morals, personality);
+    return this.judgePickWinner(gameId, judge.id, result.winnerId, result.reason);
   }
 
   /**

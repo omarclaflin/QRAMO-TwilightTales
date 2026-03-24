@@ -12,7 +12,7 @@ enum MessageType {
   SELECT_CARD = 'selectCard',
   UPDATE_CUSTOM_CARD = 'updateCustomCard',
   SUBMIT_MORAL = 'submitMoral',
-  CAST_VOTE = 'castVote',
+  JUDGE_PICK = 'judgePick',
   NEXT_ROUND = 'nextRound',
   LEAVE_GAME = 'leaveGame',
   GAME_STATE = 'gameState',
@@ -386,67 +386,38 @@ export function setupWebSocketServer(server: HttpServer) {
           console.log(`[socket-handler] Actively triggering AI moral generation for game ${gameId}`);
           
           try {
-            // Immediately generate AI morals (no delay)
             await gameStateManager.generateAIMorals(gameId);
             
-            // Get final game state after AI moral generation
             const finalGame = gameStateManager.getGameState(gameId);
             if (finalGame) {
               console.log(`[socket-handler] Final game state after AI moral generation: ${finalGame.round.status}`);
             }
             
-            // Broadcast final state after AI morals
             broadcastGameState(gameId);
+            
+            // If we moved to VOTING and judge is AI, trigger AI judgment
+            const gameForJudge = gameStateManager.getGameState(gameId);
+            if (gameForJudge && gameForJudge.round.status === roundStatus.VOTING) {
+              const judge = gameForJudge.players.find(p => p.id === gameForJudge.round.judgeId);
+              if (judge?.isAI) {
+                console.log(`[socket-handler] AI judge detected, triggering judgment for game ${gameId}`);
+                await gameStateManager.triggerAIJudgment(gameId);
+                broadcastGameState(gameId);
+              }
+            }
           } catch (aiError) {
             console.error(`[socket-handler] Error generating AI morals: ${aiError}`);
-            
-            // Only force progress to voting if ALL human players have submitted their morals 
-            const gameToFix = gameStateManager.getGameState(gameId);
-            if (gameToFix && gameToFix.round.status === roundStatus.STORYTELLING) {
-              // Check if all human players have submitted morals
-              const humanPlayersWithMorals = gameToFix.players.filter(p => !p.isAI && p.submittedMoral).length;
-              const humanPlayersTotal = gameToFix.players.filter(p => !p.isAI).length;
-              
-              if (humanPlayersWithMorals === humanPlayersTotal) {
-                console.log(`[socket-handler] All human players submitted morals. Forcing game ${gameId} to voting phase after error.`);
-                gameToFix.round.status = roundStatus.VOTING;
-              } else {
-                console.log(`[socket-handler] Not forcing voting phase - waiting for ${humanPlayersTotal - humanPlayersWithMorals} human players to submit morals.`);
-              }
-              
-              // Fix any discrepancies between player.submittedMoral and submission.moral
-              gameToFix.players.forEach(p => {
-                // Check if player has submitted but submission doesn't have it
-                if (p.submittedMoral) {
-                  const sub = gameToFix.round.submissions.find(s => s.playerId === p.id);
-                  if (sub && sub.moral === null) {
-                    sub.moral = p.submittedMoral;
-                    console.log(`[socket-handler] Fixed missing moral in submission for ${p.name} (${p.id})`);
-                  }
-                }
-                
-                // Check if submission has moral but player doesn't
-                const sub = gameToFix.round.submissions.find(s => s.playerId === p.id);
-                if (sub && sub.moral && !p.submittedMoral) {
-                  p.submittedMoral = sub.moral;
-                  console.log(`[socket-handler] Fixed missing moral in player data for ${p.name} (${p.id})`);
-                }
-                
-                // Set any missing AI morals
-                if (p.isAI && !p.submittedMoral) {
-                  p.submittedMoral = "The moral is: sometimes things don't go as planned.";
-                  
-                  // Find and update submission
-                  if (sub && sub.moral === null) {
-                    sub.moral = p.submittedMoral;
-                    console.log(`[socket-handler] Added fallback moral for AI ${p.name} (${p.id})`);
-                  }
-                }
-              });
-              
-              // Broadcast fixed state
-              broadcastGameState(gameId);
-            }
+            broadcastGameState(gameId);
+          }
+        }
+        
+        // If all morals were already in and we moved to VOTING, check for AI judge
+        if (gameAfter.round.status === roundStatus.VOTING) {
+          const judge = gameAfter.players.find(p => p.id === gameAfter.round.judgeId);
+          if (judge?.isAI) {
+            console.log(`[socket-handler] AI judge detected after moral submit, triggering judgment for game ${gameId}`);
+            await gameStateManager.triggerAIJudgment(gameId);
+            broadcastGameState(gameId);
           }
         }
       } catch (error) {
@@ -456,142 +427,42 @@ export function setupWebSocketServer(server: HttpServer) {
     });
     
     /**
-     * Casts a vote for another player's moral
-     * @event cast-vote
-     * @param {Object} data - Request data
-     * @param {string} data.gameId - ID of the game
-     * @param {string} data.votedForId - ID of the player being voted for
-     * @param {Function} callback - Callback to send response
+     * Judge picks a winning moral
+     * @event judge-pick
      */
-    socket.on(MessageType.CAST_VOTE, (data, callback) => {
-      console.log(`[socket-handler] BEGIN cast-vote for game ${data.gameId}`);
+    socket.on(MessageType.JUDGE_PICK, async (data, callback) => {
+      console.log(`[socket-handler] BEGIN judge-pick for game ${data.gameId}`);
       try {
-        const { gameId, votedForId } = data;
-        
-        console.log(`[socket-handler] Cast vote details:`, {
-          gameId,
-          voterId: socket.playerData?.playerId,
-          votedForId,
-          socketId: socket.id
-        });
+        const { gameId, winnerId, reason } = data;
         
         if (!socket.playerData || socket.playerData.gameId !== gameId) {
-          console.log(`[socket-handler] Not authorized to cast vote for game ${gameId}, socket.playerData:`, socket.playerData);
-          return callback({ success: false, error: 'Not authorized to cast a vote' });
+          return callback({ success: false, error: 'Not authorized' });
         }
         
-        // Make sure player isn't voting for themselves
-        if (socket.playerData.playerId === votedForId) {
-          console.log(`[socket-handler] Player ${socket.playerData.playerId} tried to vote for themselves`);
-          return callback({ success: false, error: 'Cannot vote for yourself' });
+        if (!winnerId || !reason?.trim()) {
+          return callback({ success: false, error: 'Winner and reason are required' });
         }
         
-        // Get game state before vote to check round status
-        const gameBefore = gameStateManager.getGameState(gameId);
-        if (!gameBefore) {
-          console.log(`[socket-handler] Game ${gameId} not found before casting vote`);
+        const game = gameStateManager.getGameState(gameId);
+        if (!game) {
           return callback({ success: false, error: 'Game not found' });
         }
         
-        console.log(`[socket-handler] Game state before casting vote:`, {
-          gameId: gameBefore.gameId,
-          status: gameBefore.status,
-          roundNumber: gameBefore.round.number,
-          roundStatus: gameBefore.round.status,
-          playersCount: gameBefore.players.length,
-          submissionsWithMorals: gameBefore.round.submissions.filter(s => s.moral !== null).length,
-          totalSubmissions: gameBefore.round.submissions.length,
-          submissionsWithVotes: gameBefore.round.submissions.filter(s => s.votes && s.votes > 0).length
-        });
-        
-        if (gameBefore.round.status !== roundStatus.VOTING) {
-          console.log(`[socket-handler] Game ${gameId} not in voting phase, current status: ${gameBefore.round.status}`);
-          return callback({ success: false, error: 'Game is not in voting phase' });
+        if (game.round.judgeId !== socket.playerData.playerId) {
+          return callback({ success: false, error: 'Only the judge can pick the winner' });
         }
         
-        // Make sure the voted-for player has a moral submission
-        const votedForSubmission = gameBefore.round.submissions.find(s => s.playerId === votedForId);
-        if (!votedForSubmission || !votedForSubmission.moral) {
-          console.log(`[socket-handler] Voted player ${votedForId} has no moral submission`);
-          return callback({ success: false, error: 'Selected player has no moral submission' });
-        }
-        
-        console.log(`[socket-handler] Processing vote: player ${socket.playerData.playerId} voting for ${votedForId}`);
-        const success = gameStateManager.castVote(gameId, socket.playerData.playerId, votedForId);
+        const success = gameStateManager.judgePickWinner(gameId, socket.playerData.playerId, winnerId, reason.trim());
         if (!success) {
-          console.log(`[socket-handler] Failed to cast vote for game ${gameId}`);
-          return callback({ success: false, error: 'Failed to cast vote' });
+          return callback({ success: false, error: 'Failed to pick winner' });
         }
         
-        // Get the new game state after voting
-        const gameAfterVote = gameStateManager.getGameState(gameId);
-        if (gameAfterVote) {
-          console.log(`[socket-handler] Game state after casting vote:`, {
-            playerId: socket.playerData.playerId,
-            votedForId,
-            roundStatus: gameAfterVote.round.status,
-            votesCountByPlayer: gameAfterVote.round.submissions.map(s => ({
-              playerId: s.playerId,
-              votes: s.votes
-            })),
-            votedPlayers: gameAfterVote.round.submissions.filter(s => s.hasVoted).length,
-            totalPlayers: gameAfterVote.players.length
-          });
-        }
-        
-        // Send immediate success response to client
         callback({ success: true });
-        console.log(`[socket-handler] Player ${socket.playerData.playerId} voted for ${votedForId} in game ${gameId}`);
-        
-        // Broadcast state after human player vote
-        console.log(`[socket-handler] Broadcasting game state after human player vote`);
+        console.log(`[socket-handler] Judge ${socket.playerData.playerId} picked winner ${winnerId} in game ${gameId}`);
         broadcastGameState(gameId);
-        
-        // Set up a periodic check for game state changes to ensure clients get updated
-        // This handles the case where the game transitions to results phase after AI voting
-        console.log(`[socket-handler] Setting up periodic check for game state transitions`);
-        const checkInterval = setInterval(() => {
-          // Get current game state
-          const currentGame = gameStateManager.getGameState(gameId);
-          if (!currentGame) {
-            console.log(`[socket-handler] Game ${gameId} no longer exists, clearing interval`);
-            clearInterval(checkInterval);
-            return;
-          }
-          
-          // If round status changed to results, broadcast final state and clear interval
-          if (currentGame.round.status === roundStatus.RESULTS) {
-            console.log(`[socket-handler] Detected game ${gameId} transitioned to results phase:`, {
-              roundNumber: currentGame.round.number,
-              roundStatus: currentGame.round.status,
-              gameStatus: currentGame.status
-            });
-            broadcastGameState(gameId);
-            clearInterval(checkInterval);
-          } else {
-            console.log(`[socket-handler] Periodic check for game ${gameId}, current round status: ${currentGame.round.status}`);
-          }
-        }, 1000); // Check every second
-        
-        // Set a timeout to clear the interval regardless after 10 seconds
-        setTimeout(() => {
-          clearInterval(checkInterval);
-          
-          // Final broadcast to ensure latest state
-          const finalGame = gameStateManager.getGameState(gameId);
-          if (finalGame) {
-            console.log(`[socket-handler] Final forced broadcast for game ${gameId}:`, {
-              roundNumber: finalGame.round.number,
-              roundStatus: finalGame.round.status,
-              gameStatus: finalGame.status
-            });
-            broadcastGameState(gameId);
-          }
-        }, 10000);
-        
       } catch (error) {
-        console.error('[socket-handler] Error casting vote:', error);
-        callback({ success: false, error: 'Failed to cast vote' });
+        console.error('[socket-handler] Error in judge pick:', error);
+        callback({ success: false, error: 'Failed to pick winner' });
       }
     });
     
@@ -636,7 +507,7 @@ export function setupWebSocketServer(server: HttpServer) {
             playerId: s.playerId,
             cardId: s.cardId,
             hasMoral: s.moral !== null,
-            votes: s.votes
+            isWinner: s.isWinner
           }))
         });
         
@@ -896,96 +767,23 @@ export function setupWebSocketServer(server: HttpServer) {
    * @returns Sanitized game state
    */
   function sanitizeGameStateForPlayer(game: Game, playerId: string): Game {
-    // Create a deep copy of the game
     const sanitizedGame = JSON.parse(JSON.stringify(game)) as Game;
     
-    // Log original voting state before sanitization when we're in voting phase
-    if (game.round.status === 'voting') {
-      const originalPlayerState = game.players.find(p => p.id === playerId);
-      const originalSubmission = game.round.submissions.find(s => s.playerId === playerId);
-      
-      console.log(`[socket-handler] ORIGINAL voting state for player ${playerId}:`, {
-        playerHasVoted: originalPlayerState?.hasVoted,
-        submissionHasVoted: originalSubmission?.hasVoted,
-        roundNumber: game.round.number,
-        roundStatus: game.round.status
-      });
-    }
-    
-    // Mask other players' hands, with special handling for card selection phase
     sanitizedGame.players = sanitizedGame.players.map(player => {
-      // Create a modified player with proper hasVoted handling
-      const modifiedPlayer = { ...player };
-      
-      // Always show the current player's full hand
       if (player.id === playerId) {
-        return modifiedPlayer;
+        return player;
       }
       
-      // For other players, we need special handling depending on game phase
       if (player.selectedCard !== null && player.hand) {
-        // If the player has selected a card and it's no longer selection phase, 
-        // we show only the selected card
         if (game.round.status !== 'selection') {
           const selectedCard = player.hand.find(card => card.id === player.selectedCard);
-          modifiedPlayer.hand = selectedCard ? [selectedCard] : [];
-          return modifiedPlayer;
+          return { ...player, hand: selectedCard ? [selectedCard] : [] };
         }
       }
       
-      // Default behavior - hide all cards
       const handLength = player.hand?.length || 0;
-      modifiedPlayer.hand = player.hand ? Array(handLength).fill({ id: 0, text: "Hidden Card" }) : undefined;
-      return modifiedPlayer;
+      return { ...player, hand: player.hand ? Array(handLength).fill({ id: 0, text: "Hidden Card" }) : undefined };
     });
-    
-    // Critical fix: Ensure hasVoted property is correctly synchronized between player and submission objects
-    if (sanitizedGame.round && sanitizedGame.round.submissions) {
-      const currentPlayer = sanitizedGame.players.find(p => p.id === playerId);
-      const currentPlayerSubmission = sanitizedGame.round.submissions.find(s => s.playerId === playerId);
-      
-      // Log if there's a mismatch between player and submission hasVoted flags
-      if (game.round.status === 'voting' && currentPlayer && currentPlayerSubmission) {
-        const originalPlayer = game.players.find(p => p.id === playerId);
-        const originalSubmission = game.round.submissions.find(s => s.playerId === playerId);
-        
-        if (originalPlayer?.hasVoted !== originalSubmission?.hasVoted) {
-          console.log(`[socket-handler] WARNING! Found mismatch in hasVoted flags for player ${playerId}:`, {
-            playerHasVoted: originalPlayer?.hasVoted,
-            submissionHasVoted: originalSubmission?.hasVoted,
-            roundNumber: game.round.number
-          });
-          
-          // Synchronize both flags - if either shows the player has voted, mark both
-          if (originalPlayer?.hasVoted || originalSubmission?.hasVoted) {
-            currentPlayer.hasVoted = true;
-            currentPlayerSubmission.hasVoted = true;
-            console.log(`[socket-handler] Fixed hasVoted mismatch for player ${playerId}`);
-          }
-        }
-      }
-      
-      // Ensure all submissions have hasVoted explicitly set (not undefined)
-      sanitizedGame.round.submissions = sanitizedGame.round.submissions.map(submission => {
-        return {
-          ...submission,
-          hasVoted: submission.hasVoted === true
-        };
-      });
-      
-      // Add detailed voting state log for current player
-      if (game.round.status === 'voting') {
-        const playerAfterFix = sanitizedGame.players.find(p => p.id === playerId);
-        const submissionAfterFix = sanitizedGame.round.submissions.find(s => s.playerId === playerId);
-        
-        console.log(`[socket-handler] FINAL voting state for player ${playerId}:`, {
-          playerHasVoted: playerAfterFix?.hasVoted,
-          submissionHasVoted: submissionAfterFix?.hasVoted,
-          roundNumber: sanitizedGame.round.number,
-          canVote: !playerAfterFix?.hasVoted && !submissionAfterFix?.hasVoted
-        });
-      }
-    }
     
     return sanitizedGame;
   }

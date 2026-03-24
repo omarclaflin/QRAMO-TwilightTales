@@ -9,7 +9,7 @@ enum MessageType {
   SELECT_CARD = 'selectCard',
   UPDATE_CUSTOM_CARD = 'updateCustomCard',
   SUBMIT_MORAL = 'submitMoral',
-  CAST_VOTE = 'castVote',
+  JUDGE_PICK = 'judgePick',
   NEXT_ROUND = 'nextRound',
   LEAVE_GAME = 'leaveGame',
   GAME_STATE = 'gameState',

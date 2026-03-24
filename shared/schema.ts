@@ -50,21 +50,21 @@ export interface Player {
   hand?: Card[];
   selectedCard?: number | null;
   submittedMoral?: string | null;
-  hasVoted?: boolean;
 }
 
 export interface Submission {
   playerId: string;
   cardId: number;
   moral: string | null;
-  votes: number;
-  hasVoted: boolean; // Tracks whether the player has cast their vote
+  isWinner: boolean;
 }
 
 export interface Round {
   number: number;
   status: string;
   story: string;
+  judgeId: string;
+  judgeReason: string | null;
   submissions: Submission[];
 }
 
