@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 // Use our singleton socket manager
 import { useSocketManager } from './use-socket-manager';
-import { useToast } from './use-toast';
 import { useLocation } from 'wouter';
 import { Game } from '@shared/schema';
 
@@ -19,7 +18,6 @@ export const useGameState = (props?: UseGameStateProps) => {
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [playerName, setPlayerName] = useState<string>('');
   const [, setLocation] = useLocation();
-  const { toast } = useToast();
 
   // Get game and player from session storage on mount
   useEffect(() => {
@@ -71,14 +69,7 @@ export const useGameState = (props?: UseGameStateProps) => {
    * @param name - Player name
    */
   const createGame = useCallback(async (name: string) => {
-    if (!name.trim()) {
-      toast({
-        title: 'Invalid Name',
-        description: 'Please enter a valid name',
-        variant: 'destructive',
-      });
-      return;
-    }
+    if (!name.trim()) return;
     
     try {
       setPlayerName(name);
@@ -96,7 +87,7 @@ export const useGameState = (props?: UseGameStateProps) => {
     } catch (error) {
       console.error('Error creating game:', error);
     }
-  }, [socketCreateGame, setLocation, toast]);
+  }, [socketCreateGame, setLocation]);
 
   /**
    * Join an existing game
@@ -104,14 +95,7 @@ export const useGameState = (props?: UseGameStateProps) => {
    * @param name - Player name
    */
   const joinGame = useCallback(async (gameId: string, name: string) => {
-    if (!gameId.trim() || !name.trim()) {
-      toast({
-        title: 'Invalid Input',
-        description: 'Please enter a valid game code and name',
-        variant: 'destructive',
-      });
-      return;
-    }
+    if (!gameId.trim() || !name.trim()) return;
     
     try {
       setPlayerName(name);
@@ -129,7 +113,7 @@ export const useGameState = (props?: UseGameStateProps) => {
     } catch (error) {
       console.error('Error joining game:', error);
     }
-  }, [socketJoinGame, setLocation, toast]);
+  }, [socketJoinGame, setLocation]);
 
   /**
    * Start the game (host only)
@@ -171,21 +155,14 @@ export const useGameState = (props?: UseGameStateProps) => {
   const submitMoral = useCallback(async (moral: string) => {
     if (!gameState) return;
     
-    if (!moral.trim()) {
-      toast({
-        title: 'Invalid Moral',
-        description: 'Please enter a moral for the story',
-        variant: 'destructive',
-      });
-      return;
-    }
+    if (!moral.trim()) return;
     
     try {
       await socketSubmitMoral(gameState.gameId, moral);
     } catch (error) {
       console.error('Error submitting moral:', error);
     }
-  }, [gameState, socketSubmitMoral, toast]);
+  }, [gameState, socketSubmitMoral]);
 
   /**
    * Judge picks the winning moral

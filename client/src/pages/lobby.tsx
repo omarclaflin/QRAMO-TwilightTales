@@ -4,12 +4,10 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useGameState } from '@/hooks/use-game-state';
 import { PlayerList } from '@/components/player-list';
-import { useToast } from '@/hooks/use-toast';
 import RulesModal from '@/components/rules-modal';
 
 const LobbyPage: React.FC = () => {
   const { gameId } = useParams();
-  const { toast } = useToast();
   const [rulesOpen, setRulesOpen] = React.useState(false);
   const { 
     gameState, 
@@ -18,16 +16,11 @@ const LobbyPage: React.FC = () => {
     startGame
   } = useGameState();
   
-  // Check if the game exists
   useEffect(() => {
     if (!gameState && gameId) {
-      toast({
-        title: 'Game Not Found',
-        description: 'The game you are trying to join does not exist.',
-        variant: 'destructive',
-      });
+      console.warn('[LobbyPage] Game not found:', gameId);
     }
-  }, [gameState, gameId, toast]);
+  }, [gameState, gameId]);
   
   // Redirect if game has already started
   useEffect(() => {

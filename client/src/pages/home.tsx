@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useGameState } from '@/hooks/use-game-state';
 import RulesModal from '@/components/rules-modal';
-import { useToast } from '@/hooks/use-toast';
 import { ConnectionStatus } from '@/components/connection-status';
 
 const HomePage: React.FC = () => {
@@ -12,7 +11,6 @@ const HomePage: React.FC = () => {
   const [roomCode, setRoomCode] = useState('');
   const [rulesOpen, setRulesOpen] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState('initializing');
-  const { toast } = useToast();
   const { createGame, joinGame, connected, isConnecting } = useGameState();
   
   // Log connection status changes
@@ -20,7 +18,7 @@ const HomePage: React.FC = () => {
     console.log(`[HomePage] Socket connection status: ${connected ? 'connected' : 'disconnected'}, isConnecting: ${isConnecting}`);
     setConnectionStatus(connected ? 'connected' : (isConnecting ? 'connecting' : 'disconnected'));
     
-  }, [connected, isConnecting, toast]);
+  }, [connected, isConnecting]);
   
   const handleCreateGame = () => {
     createGame(playerName);

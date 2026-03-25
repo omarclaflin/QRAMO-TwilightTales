@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardFooter, CardTitle, CardDescription }
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useGameState } from '@/hooks/use-game-state';
-import { useToast } from '@/hooks/use-toast';
 import { GameCard, CardGrid } from '@/components/card-simple';
 import { MoralInput } from '@/components/moral-input';
 import { PlayerList } from '@/components/player-list';
@@ -37,7 +36,6 @@ const cardTypeLabels: Record<string, string> = {
 
 const GamePage: React.FC = () => {
   const { gameId } = useParams();
-  const { toast } = useToast();
   const [localSelectedCardId, setLocalSelectedCardId] = useState<number | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
   
@@ -69,13 +67,9 @@ const GamePage: React.FC = () => {
   // Check if the game exists
   useEffect(() => {
     if (!gameState && gameId) {
-      toast({
-        title: 'Game Not Found',
-        description: 'The game you are trying to join does not exist.',
-        variant: 'destructive',
-      });
+      console.warn('[GamePage] Game not found:', gameId);
     }
-  }, [gameState, gameId, toast]);
+  }, [gameState, gameId]);
   
   // Handle synchronizing local selection state with server state
   useEffect(() => {
@@ -436,11 +430,6 @@ const GamePage: React.FC = () => {
                           .then(() => {})
                           .catch((error: unknown) => {
                             console.error('[GamePage] Error updating custom card:', error);
-                            toast({
-                              title: 'Error',
-                              description: 'Failed to update custom card text',
-                              variant: 'destructive',
-                            });
                           });
                       }
                     }}
@@ -472,11 +461,6 @@ const GamePage: React.FC = () => {
                             .then(() => {})
                             .catch((error: unknown) => {
                               console.error('[GamePage] Error confirming card:', error);
-                              toast({
-                                title: 'Error',
-                                description: 'Failed to confirm card selection',
-                                variant: 'destructive',
-                              });
                             });
                         }
                       }}

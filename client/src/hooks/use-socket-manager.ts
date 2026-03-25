@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import socketManager from '@/lib/socketManager';
-import { useToast } from '@/hooks/use-toast';
 import { Game, Player } from '@shared/schema';
 
 // Types imported from our previous socket hook
@@ -41,9 +40,6 @@ export function useSocketManager() {
   // Using a simple state instead of a map since we only care about the current player
   const [temporaryCardSelection, setTemporaryCardSelection] = useState<number | null>(null);
   
-  const { toast } = useToast();
-  
-  // Show appropriate toasts when connection status changes
   useEffect(() => {
     console.log('[useSocketManager] Setting up connection state listener');
     
@@ -59,15 +55,6 @@ export function useSocketManager() {
       } else {
         setConnected(false);
         setConnecting(false);
-        
-        // Don't show disconnection toast if we were never connected
-        if (connected) {
-          toast({
-            title: 'Disconnected',
-            description: 'Lost connection to the game server',
-            variant: 'destructive',
-          });
-        }
       }
     });
     
@@ -75,7 +62,7 @@ export function useSocketManager() {
       console.log('[useSocketManager] Cleaning up connection state listener');
       unsubscribe();
     };
-  }, [connected, toast]);
+  }, [connected]);
   
   // Listen for game state updates
   useEffect(() => {
@@ -226,16 +213,9 @@ export function useSocketManager() {
       return response;
     } catch (error) {
       console.error('[useSocketManager] Error creating game:', error);
-      
-      toast({
-        title: 'Error Creating Game',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive',
-      });
-      
       throw error;
     }
-  }, [toast]);
+  }, []);
   
   /**
    * Join an existing game
@@ -259,16 +239,9 @@ export function useSocketManager() {
       return response;
     } catch (error) {
       console.error('[useSocketManager] Error joining game:', error);
-      
-      toast({
-        title: 'Error Joining Game',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive',
-      });
-      
       throw error;
     }
-  }, [toast]);
+  }, []);
   
   /**
    * Start a game (host only)
@@ -282,16 +255,9 @@ export function useSocketManager() {
       return response;
     } catch (error) {
       console.error('[useSocketManager] Error starting game:', error);
-      
-      toast({
-        title: 'Error Starting Game',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive',
-      });
-      
       throw error;
     }
-  }, [toast]);
+  }, []);
   
   /**
    * Temporarily select a card during the card selection phase (client-side only)
@@ -378,16 +344,9 @@ export function useSocketManager() {
       return response;
     } catch (error) {
       console.error('[useSocketManager] Error confirming card selection:', error);
-      
-      toast({
-        title: 'Error Confirming Card',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive',
-      });
-      
       throw error;
     }
-  }, [toast, setTemporaryCardSelection]);
+  }, [setTemporaryCardSelection]);
   
   /**
    * Submit a moral for the story
@@ -401,16 +360,9 @@ export function useSocketManager() {
       return response;
     } catch (error) {
       console.error('[useSocketManager] Error submitting moral:', error);
-      
-      toast({
-        title: 'Error Submitting Moral',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive',
-      });
-      
       throw error;
     }
-  }, [toast]);
+  }, []);
   
   /**
    * Judge picks the winning moral
@@ -424,16 +376,9 @@ export function useSocketManager() {
       return response;
     } catch (error) {
       console.error('[useSocketManager] Error in judge pick:', error);
-      
-      toast({
-        title: 'Error Picking Winner',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive',
-      });
-      
       throw error;
     }
-  }, [toast]);
+  }, []);
   
   /**
    * Move to the next round of the game
@@ -447,16 +392,9 @@ export function useSocketManager() {
       return response;
     } catch (error) {
       console.error('[useSocketManager] Error starting next round:', error);
-      
-      toast({
-        title: 'Error Starting Next Round',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive',
-      });
-      
       throw error;
     }
-  }, [toast]);
+  }, []);
   
   /**
    * Leave the current game
@@ -470,16 +408,9 @@ export function useSocketManager() {
       return response;
     } catch (error) {
       console.error('[useSocketManager] Error leaving game:', error);
-      
-      toast({
-        title: 'Error Leaving Game',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive',
-      });
-      
       throw error;
     }
-  }, [toast]);
+  }, []);
   
   // Manual connection management (usually not needed)
   const connect = useCallback(() => {
@@ -508,16 +439,9 @@ export function useSocketManager() {
       return response;
     } catch (error) {
       console.error('[useSocketManager] Error updating custom card:', error);
-      
-      toast({
-        title: 'Error Updating Custom Card',
-        description: error instanceof Error ? error.message : 'Unknown error',
-        variant: 'destructive',
-      });
-      
       throw error;
     }
-  }, [toast]);
+  }, []);
 
   return {
     connected,
