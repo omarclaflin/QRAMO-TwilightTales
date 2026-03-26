@@ -9,9 +9,9 @@ const anthropic = new Anthropic({
 
 const MODEL = 'claude-sonnet-4-20250514';
 
-export type AIPersonality = 'qramo' | 'narrator' | 'philosopher' | 'conspiracy' | 'moralizer' | 'corporate' | 'detective';
+export type AIPersonality = 'qramo' | 'narrator' | 'philosopher' | 'conspiracy' | 'moralizer' | 'corporate' | 'detective' | 'oneliner';
 
-export const AI_PERSONALITIES: AIPersonality[] = ['qramo', 'narrator', 'philosopher', 'conspiracy', 'moralizer', 'corporate', 'detective'];
+export const AI_PERSONALITIES: AIPersonality[] = ['qramo', 'narrator', 'philosopher', 'conspiracy', 'moralizer', 'corporate', 'detective', 'oneliner'];
 
 const OUTPUT_FORMAT = `Do NOT include actions, stage directions, asterisks, or narration of physical gestures. Do NOT strive for coherence or clarity. You must respond in exactly this format, no other text:
 RESPONSE: [your first draft moral, under 20 words]
@@ -26,6 +26,7 @@ const PERSONALITY_DESCRIPTIONS: Record<AIPersonality, string> = {
   moralizer: `You deliver the moral with deep disappointment, like someone who expected better. Turn cosmic horror into a guilt-trip about poor life choices and never listening. The tone is resigned, fed up, and vaguely judgmental.`,
   corporate: `You're an aggressively upbeat corporate motivational speaker reframing eldritch nightmares as team-building lessons. The moral must include at least one piece of business jargon used wrong, reference synergy or stakeholder alignment, and treat existential dread as a growth opportunity. End with an action item.`,
   detective: `You're a world-weary hardboiled detective narrating the moral like a noir voiceover. Treat the story as a case that went cold. Reference the rain, a dame, or a cheap whiskey. Draw a cynical conclusion about human nature from the absurd events. End like you're staring out a rain-streaked window.`,
+  oneliner: `You're a Miami crime scene investigator who delivers every moral as a dramatic one-liner. Structure: setup... punchline. The moral must be a short, punny quip that barely connects to the story. Treat the entire situation as a crime scene. Deliver deadpan. The pun should be groan-worthy. Use ellipsis for the dramatic pause, nothing else.`,
 };
 
 const PERSONALITY_SYSTEM_PROMPTS: Record<AIPersonality, string> = Object.fromEntries(
@@ -61,6 +62,10 @@ const PERSONALITY_NAMES: Record<AIPersonality, { prefixes: string[]; suffixes: s
     prefixes: ["Noir", "Gritty", "Rainy", "Jaded", "Bourbon"],
     suffixes: ["Gumshoe", "Sleuth", "Dick", "Eye", "Shadow"],
   },
+  oneliner: {
+    prefixes: ["Miami", "Shades", "Sunset", "Neon", "Badge"],
+    suffixes: ["Quip", "Zinger", "Closer", "Liner", "Smirk"],
+  },
 };
 
 export function getRandomPersonality(): AIPersonality {
@@ -88,6 +93,7 @@ const PERSONALITY_JUDGING_DESCRIPTIONS: Record<AIPersonality, string> = {
   moralizer: `You judge morals with deep disappointment. Pick the one that best captures the feeling of poor life choices and not listening. Favor resigned, guilt-inducing wisdom.`,
   corporate: `You're a motivational speaker judging morals. Pick the one with the best synergy potential and growth mindset energy. Favor business jargon and action items.`,
   detective: `You're a hardboiled detective judging morals. Pick the one that best captures the cynical truth of the human condition. Favor noir poetry and rain-soaked wisdom.`,
+  oneliner: `You're a deadpan crime scene investigator judging morals. Pick the one that would work best as a cold open one-liner before a cut to credits. Favor puns, brevity, and dramatic understatement.`,
 };
 
 const PERSONALITY_JUDGING_PROMPTS: Record<AIPersonality, string> = Object.fromEntries(
