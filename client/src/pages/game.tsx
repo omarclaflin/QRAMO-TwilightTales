@@ -13,6 +13,18 @@ import { roundStatus, cardTypes, Card as CardType } from '@shared/schema';
 import { cn } from '@/lib/utils';
 import { getQRAMOTitle } from '@/lib/qramo-words';
 
+function getEasterEggImage(name: string): string | null {
+  if (name === 'q' || name === 'qadri') return 'trickster';
+  if (name === 'tuna' || name.includes('tuna')) return 'tuna';
+  if (name === 'laser' || name === 'laserwolf' || name === 'coldire') return 'laserwolf';
+  if (name === 'ramo') return 'mystic';
+  if (name === 'ameer') return 'meerkat';
+  if (name === 'tekkai' || name === 'wallace' || name === 'qaed') return 'bravefist';
+  if (name === 'qiyam' || name === 'qwavko') return 'templar';
+  if (name === 'kevin' || name === 'titan') return 'gunner';
+  return null;
+}
+
 // Extended card type with player card type for story ordering
 interface ExtendedCard extends CardType {
   playerCardType?: string | null;
@@ -111,12 +123,10 @@ const GamePage: React.FC = () => {
           setWinnerImage(`/assets/personalities/${player.personality}_${imgIndex}.png`);
         } else if (player) {
           const nameLower = player.name.toLowerCase();
-          if (nameLower === 'q') {
+          const easterEgg = getEasterEggImage(nameLower);
+          if (easterEgg) {
             const imgIndex = Math.floor(Math.random() * 5) + 1;
-            setWinnerImage(`/assets/personalities/trickster_${imgIndex}.png`);
-          } else if (nameLower === 'tuna' || nameLower.includes('tuna')) {
-            const imgIndex = Math.floor(Math.random() * 5) + 1;
-            setWinnerImage(`/assets/personalities/tuna_${imgIndex}.png`);
+            setWinnerImage(`/assets/easter/${easterEgg}_${imgIndex}.png`);
           } else {
             const imgIndex = Math.floor(Math.random() * PLAYER_IMAGE_COUNT) + 1;
             setWinnerImage(`/assets/player/player_${imgIndex}.png`);

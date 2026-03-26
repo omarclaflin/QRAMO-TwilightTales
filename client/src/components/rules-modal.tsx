@@ -48,14 +48,14 @@ export const RulesModal: React.FC<RulesModalProps> = ({
           <div>
             <h4 className="text-base font-medium text-gray-900 mb-2">Game Flow</h4>
             <ol className="space-y-2 text-gray-600 list-decimal pl-5">
+              <li>A rotating judge is chosen each round (random for round 1, then sequential)</li>
               <li>Each player is assigned a card type (rotates each round)</li>
               <li>Players receive 3 cards of their assigned type</li>
-              <li>Everyone selects 1 card to contribute to the story</li>
-              <li>The system assembles all chosen cards into a coherent story</li>
-              <li>Players write a "moral of the story" based on the assembled narrative</li>
-              <li>Everyone votes for their favorite moral (you can't vote for your own)</li>
-              <li>Points are awarded based on votes received</li>
-              <li>Card types rotate and a new round begins</li>
+              <li>Everyone selects 1 card to contribute to the story (including the judge)</li>
+              <li>The system assembles all chosen cards into a story</li>
+              <li>All players except the judge write a "moral of the story"</li>
+              <li>The judge picks their favorite moral and explains why</li>
+              <li>The winning moral earns 1 point</li>
               <li>After 5 rounds, the player with the most points wins</li>
             </ol>
           </div>
@@ -63,8 +63,8 @@ export const RulesModal: React.FC<RulesModalProps> = ({
           <div>
             <h4 className="text-base font-medium text-gray-900 mb-2">AI Players</h4>
             <DialogDescription>
-              If fewer than 5 human players join, AI players will automatically fill the remaining slots. 
-              They select cards and generate morals using AI.
+              If fewer than 5 human players join, AI players with unique personalities fill the remaining slots.
+              They select cards, generate morals, and judge rounds in character.
             </DialogDescription>
           </div>
           
