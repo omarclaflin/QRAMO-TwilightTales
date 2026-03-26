@@ -108,9 +108,18 @@ const GamePage: React.FC = () => {
         if (player?.isAI && player.personality) {
           const imgIndex = Math.floor(Math.random() * PERSONALITY_IMAGE_COUNT) + 1;
           setWinnerImage(`/assets/personalities/${player.personality}_${imgIndex}.png`);
-        } else {
-          const imgIndex = Math.floor(Math.random() * PLAYER_IMAGE_COUNT) + 1;
-          setWinnerImage(`/assets/player/player_${imgIndex}.png`);
+        } else if (player) {
+          const nameLower = player.name.toLowerCase();
+          if (nameLower === 'q') {
+            const imgIndex = Math.floor(Math.random() * 5) + 1;
+            setWinnerImage(`/assets/personalities/trickster_${imgIndex}.png`);
+          } else if (nameLower === 'tuna' || nameLower.includes('tuna')) {
+            const imgIndex = Math.floor(Math.random() * 5) + 1;
+            setWinnerImage(`/assets/personalities/tuna_${imgIndex}.png`);
+          } else {
+            const imgIndex = Math.floor(Math.random() * PLAYER_IMAGE_COUNT) + 1;
+            setWinnerImage(`/assets/player/player_${imgIndex}.png`);
+          }
         }
       } else {
         const imgIndex = Math.floor(Math.random() * PLAYER_IMAGE_COUNT) + 1;
