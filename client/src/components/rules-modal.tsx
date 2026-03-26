@@ -8,6 +8,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { getQRAMOTitle } from '@/lib/qramo-words';
 
 interface RulesModalProps {
   open: boolean;
@@ -29,7 +30,7 @@ export const RulesModal: React.FC<RulesModalProps> = ({
           <div>
             <h4 className="text-base font-medium text-gray-900 mb-2">Game Overview</h4>
             <DialogDescription>
-              QRAMO (Questionable Retroactive Apathetic Moral Offerings) is a storytelling card game where players create bizarre narratives with escalating twists, then compete to create the most entertaining moral for the story.
+              {getQRAMOTitle()} is a storytelling card game where players create bizarre narratives with escalating twists, then compete to create the most entertaining moral for the story.
             </DialogDescription>
           </div>
           

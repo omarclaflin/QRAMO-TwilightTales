@@ -81,7 +81,8 @@ export function generateAIPlayerNameForPersonality(personality: AIPersonality): 
 
 const JUDGING_FORMAT = `Prefer morals that explain or constructively add to the theme of the story. Strongly prefer morals that are clever or funny.
 Your REASON must explain why you preferred this moral over the others.
-Do NOT include actions, stage directions, asterisks, or narration of physical gestures. You must respond in exactly this format, no other text:
+Do NOT include actions, stage directions, asterisks, or narration of physical gestures. First react to each moral, then pick your favorite. You must respond in exactly this format, no other text:
+REACTION: [your brief gut reaction to each moral by number, e.g. "1: clever wordplay, 2: tries too hard, 3: funny twist"]
 PREFERRED: [number of your chosen moral, e.g. 1, 2, 3...]
 REASON: [why you picked this moral over the others, in your character voice, under 15 words]`;
 
@@ -122,7 +123,7 @@ export async function generateAIJudgment(
 
     const responsePromise = anthropic.messages.create({
       model: MODEL,
-      max_tokens: 150,
+      max_tokens: 400,
       temperature: 0.7,
       system: PERSONALITY_JUDGING_PROMPTS[personality],
       messages: [{ role: 'user', content: prompt }],

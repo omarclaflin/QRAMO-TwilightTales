@@ -11,6 +11,7 @@ import { StoryDisplay } from '@/components/story-display';
 import { RulesModal } from '@/components/rules-modal';
 import { roundStatus, cardTypes, Card as CardType } from '@shared/schema';
 import { cn } from '@/lib/utils';
+import { getQRAMOTitle } from '@/lib/qramo-words';
 
 // Extended card type with player card type for story ordering
 interface ExtendedCard extends CardType {
@@ -356,7 +357,7 @@ const GamePage: React.FC = () => {
           <CardContent className="p-6 space-y-6">
             <div className="text-center py-4">
               <h2 className="text-2xl font-heading font-bold text-gray-900">Final Results</h2>
-              <p className="text-gray-600 mt-1">Thanks for playing QRAMO (Questionable Retroactive Aribtrary Moral Offerings)!</p>
+              <p className="text-gray-600 mt-1">Thanks for playing {getQRAMOTitle()}!</p>
             </div>
             
             <div className="final-scores">

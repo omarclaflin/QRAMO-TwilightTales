@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { ConnectionStatus } from "@/components/connection-status";
 import { RulesModal } from "@/components/rules-modal";
+import { getQRAMOTitle } from "@/lib/qramo-words";
 import NotFound from "@/pages/not-found";
 import HomePage from "@/pages/home";
 import LobbyPage from "@/pages/lobby";
@@ -27,7 +28,7 @@ const Navbar = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <span className="text-primary font-heading font-bold text-xl">QRAMO (Questionable Retroactive Ambiguous Moral Offerings)</span>
+              <span className="text-primary font-heading font-bold text-xl">{getQRAMOTitle()}</span>
               <div className="ml-4">
                 <ConnectionStatus variant="indicator" />
               </div>

@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useGameState } from '@/hooks/use-game-state';
 import RulesModal from '@/components/rules-modal';
 import { ConnectionStatus } from '@/components/connection-status';
+import { getQRAMOTitle } from '@/lib/qramo-words';
 
 const HomePage: React.FC = () => {
   const [playerName, setPlayerName] = useState('');
@@ -36,7 +37,7 @@ const HomePage: React.FC = () => {
       <Card className="max-w-md w-full">
         <CardContent className="p-6 space-y-8">
           <div className="text-center">
-            <h1 className="text-4xl font-heading font-bold text-primary">QRAMO (Questionable Retroactive Anxious Moral Offerings)</h1>
+            <h1 className="text-4xl font-heading font-bold text-primary">{getQRAMOTitle()}</h1>
             <p className="mt-2 text-gray-600">A storytelling card game with bizarre twists</p>
             
             {/* Connection status indicator */}
