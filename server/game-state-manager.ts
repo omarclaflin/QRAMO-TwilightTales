@@ -1075,14 +1075,22 @@ class GameStateManager {
     const judge = game.players.find((p) => p.id === game.round.judgeId);
     if (!judge || !judge.isAI) return false;
 
-    const morals = game.round.submissions
+    const allMorals = game.round.submissions
       .filter((s) => s.moral !== null)
       .map((s) => ({ playerId: s.playerId, moral: s.moral! }));
 
-    if (morals.length === 0) return false;
+    if (allMorals.length === 0) return false;
+
+    const humanMorals = allMorals.filter((m) => {
+      const player = game.players.find((p) => p.id === m.playerId);
+      return player && !player.isAI;
+    });
+
+    const preferHuman = Math.random() < 0.5 && humanMorals.length > 0;
+    const morals = preferHuman ? humanMorals : allMorals;
 
     const personality = (judge.personality as AIPersonality) || 'qramo';
-    console.log(`[game-state-manager] AI judge ${judge.name} (${personality}) deliberating...`);
+    console.log(`[game-state-manager] AI judge ${judge.name} (${personality}) deliberating... (pool: ${preferHuman ? 'humans only' : 'all players'})`);
 
     const result = await generateAIJudgment(morals, personality, game.round.story);
     return this.judgePickWinner(gameId, judge.id, result.winnerId, result.reason);
