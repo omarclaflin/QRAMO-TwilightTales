@@ -252,9 +252,9 @@ class GameStateManager {
       `Adding ${aiCount} AI players to game ${game.gameId}. Current players: ${currentHumanCount}`,
     );
 
-    const others = AI_PERSONALITIES.filter(p => p !== 'qramo');
+    const others = AI_PERSONALITIES.filter(p => p !== 'qramo' && p !== 'narrator');
     const shuffledOthers = others.sort(() => Math.random() - 0.5);
-    const ordered: typeof AI_PERSONALITIES = ['qramo', ...shuffledOthers];
+    const ordered: typeof AI_PERSONALITIES = ['qramo', 'narrator', ...shuffledOthers];
     for (let i = 0; i < aiCount; i++) {
       const personality = ordered[i % ordered.length];
       const aiPlayer: Player = {
