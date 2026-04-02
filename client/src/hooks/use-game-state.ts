@@ -36,9 +36,9 @@ export const useGameState = (props?: UseGameStateProps) => {
   }, [gameState]);
 
   // Setup socket connection with game state handling
-  const { 
-    connected, 
-    connecting: isConnecting, 
+  const {
+    connected,
+    connecting: isConnecting,
     gameState: socketGameState,
     createGame: socketCreateGame,
     joinGame: socketJoinGame,
@@ -49,7 +49,8 @@ export const useGameState = (props?: UseGameStateProps) => {
     submitMoral: socketSubmitMoral,
     judgePick: socketJudgePick,
     nextRound: socketNextRound,
-    leaveGame: socketLeaveGame
+    leaveGame: socketLeaveGame,
+    sendChatMessage: socketSendChatMessage
   } = useSocketManager();
   
   // Update game state when it changes in the socket manager
@@ -256,6 +257,20 @@ export const useGameState = (props?: UseGameStateProps) => {
     }
   }, [socketUpdateCustomCard]);
 
+  /**
+   * Send a chat message to the game room
+   * @param gameId - ID of the game
+   * @param message - Chat message text
+   */
+  const sendChatMessage = useCallback(async (gameId: string, message: string) => {
+    try {
+      console.log(`[useGameState] Sending chat message in game ${gameId}`);
+      await socketSendChatMessage(gameId, message);
+    } catch (error) {
+      console.error('[useGameState] Error sending chat message:', error);
+    }
+  }, [socketSendChatMessage]);
+
   return {
     gameState,
     playerId,
@@ -272,6 +287,7 @@ export const useGameState = (props?: UseGameStateProps) => {
     submitMoral,
     judgePick,
     nextRound,
-    leaveGame
+    leaveGame,
+    sendChatMessage
   };
 };

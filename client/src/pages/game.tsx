@@ -9,6 +9,7 @@ import { MoralInput } from '@/components/moral-input';
 import { PlayerList } from '@/components/player-list';
 import { StoryDisplay } from '@/components/story-display';
 import { RulesModal } from '@/components/rules-modal';
+import { ChatBox } from '@/components/chat-box';
 import { roundStatus, cardTypes, Card as CardType } from '@shared/schema';
 import { cn } from '@/lib/utils';
 import { getQRAMOTitle } from '@/lib/qramo-words';
@@ -64,9 +65,9 @@ const GamePage: React.FC = () => {
   // State to track if cards have been revealed to prevent re-animation
   const [cardsRevealed, setCardsRevealed] = useState<boolean>(false);
   
-  const { 
-    gameState, 
-    playerId, 
+  const {
+    gameState,
+    playerId,
     currentPlayer,
     selectCard,
     confirmCardSelection,
@@ -74,7 +75,8 @@ const GamePage: React.FC = () => {
     submitMoral,
     judgePick,
     nextRound,
-    leaveGame
+    leaveGame,
+    sendChatMessage
   } = useGameState();
   
   // Check if the game exists
@@ -837,6 +839,19 @@ const GamePage: React.FC = () => {
         open={rulesOpen}
         onClose={() => setRulesOpen(false)}
       />
+
+      {/* Chat Box - Fixed to bottom right */}
+      {gameId && playerId && (
+        <ChatBox
+          gameId={gameId}
+          currentPlayerId={playerId}
+          onSendMessage={(message) => {
+            if (gameId) {
+              sendChatMessage(gameId, message);
+            }
+          }}
+        />
+      )}
     </div>
   );
 };

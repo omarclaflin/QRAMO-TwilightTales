@@ -3,6 +3,7 @@ import { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import gameStateManager from './game-state-manager';
 import { Player, Game, roundStatus, gameStatus } from '@shared/schema';
+import { generateAIChatResponse, AIPersonality } from './ai-service';
 
 // Define message types
 enum MessageType {
@@ -17,7 +18,8 @@ enum MessageType {
   LEAVE_GAME = 'leaveGame',
   GAME_STATE = 'gameState',
   ERROR = 'error',
-  MESSAGE = 'message'
+  MESSAGE = 'message',
+  CHAT_MESSAGE = 'chatMessage'
 }
 
 // Extended Socket interface with game-specific data
@@ -63,6 +65,21 @@ export function setupWebSocketServer(server: HttpServer) {
 
   // Store player socket mapping
   const playerSockets = new Map<string, string>(); // playerId -> socketId
+
+  // Chat state per game
+  const chatHistories = new Map<string, Array<{ playerName: string; message: string }>>();
+  const chatCounters = new Map<string, { count: number; threshold: number }>();
+  const mentionCooldowns = new Map<string, number>(); // gameId -> timestamp of last @mention AI response
+
+  function getNextThreshold() {
+    return Math.floor(Math.random() * 4) + 1; // 1–4
+  }
+
+  function getChatHistory(gameId: string): string {
+    return (chatHistories.get(gameId) || [])
+      .map(m => `${m.playerName}: ${m.message}`)
+      .join('\n');
+  }
 
   // Connection handler
   io.on('connection', (socket: GameSocket) => {
@@ -682,18 +699,132 @@ export function setupWebSocketServer(server: HttpServer) {
       console.log(`[${timestamp}] 'message' event received from ${socket.id}`);
       console.log(`  -> Data type: ${typeof data}`);
       console.log(`  -> Data content:`, data);
-      
-      let messageText = typeof data === 'string' ? data : 
-                       (data && typeof data === 'object' && 'text' in data) ? data.text : 
+
+      let messageText = typeof data === 'string' ? data :
+                       (data && typeof data === 'object' && 'text' in data) ? data.text :
                        'Invalid message format';
-      
+
       // Echo messages back to the client with the same event name
       const responseText = `Echo: ${messageText} (from server)`;
       console.log(`[${timestamp}] Server emitting 'message' response: "${responseText}"`);
-      
+
       socket.emit('message', responseText);
     });
-    
+
+    /**
+     * Handles chat messages in a game room
+     * @event chatMessage
+     * @param {Object} data - Message data
+     * @param {string} data.gameId - ID of the game
+     * @param {string} data.message - Chat message text
+     */
+    socket.on(MessageType.CHAT_MESSAGE, (data) => {
+      try {
+        const { gameId, message } = data;
+
+        if (!socket.playerData || socket.playerData.gameId !== gameId) {
+          console.log(`[socket-handler] Unauthorized chat attempt for game ${gameId}`);
+          return;
+        }
+
+        if (!message?.trim()) {
+          return;
+        }
+
+        const game = gameStateManager.getGameState(gameId);
+        if (!game) {
+          return;
+        }
+
+        const player = game.players.find(p => p.id === socket.playerData?.playerId);
+        if (!player) {
+          return;
+        }
+
+        const trimmed = message.trim();
+
+        // Track history (keep last 20)
+        if (!chatHistories.has(gameId)) chatHistories.set(gameId, []);
+        const history = chatHistories.get(gameId)!;
+        history.push({ playerName: player.name, message: trimmed });
+        if (history.length > 20) history.shift();
+
+        // Broadcast the human message
+        io.to(gameId).emit(MessageType.CHAT_MESSAGE, {
+          playerId: player.id,
+          playerName: player.name,
+          message: trimmed,
+          timestamp: Date.now()
+        });
+
+        console.log(`[socket-handler] Chat message from ${player.name} in game ${gameId}`);
+
+        // Determine which AI player(s) should respond
+        const aiPlayers = game.players.filter(p => p.isAI && p.personality);
+
+        if (aiPlayers.length === 0) return;
+
+        // Check for @mention of an AI player (case-insensitive)
+        const mentionedAI = aiPlayers.find(p =>
+          trimmed.toLowerCase().includes(`@${p.name.toLowerCase()}`)
+        );
+
+        const now = Date.now();
+        const lastMention = mentionCooldowns.get(gameId) ?? 0;
+        const mentionOnCooldown = (now - lastMention) < 10000;
+
+        let respondingAI = (mentionedAI && !mentionOnCooldown) ? mentionedAI : null;
+
+        if (respondingAI && mentionedAI) {
+          mentionCooldowns.set(gameId, now);
+        }
+
+        if (!respondingAI) {
+          // Increment counter; fire when threshold reached
+          if (!chatCounters.has(gameId)) {
+            chatCounters.set(gameId, { count: 0, threshold: getNextThreshold() });
+          }
+          const counter = chatCounters.get(gameId)!;
+          counter.count++;
+
+          if (counter.count >= counter.threshold) {
+            counter.count = 0;
+            counter.threshold = getNextThreshold();
+            // Pick a random AI player
+            respondingAI = aiPlayers[Math.floor(Math.random() * aiPlayers.length)];
+          }
+        }
+
+        if (!respondingAI) return;
+
+        const aiPlayer = respondingAI;
+        const personality = aiPlayer.personality as AIPersonality;
+        const chatSnapshot = getChatHistory(gameId);
+
+        // Generate and broadcast AI response asynchronously
+        (async () => {
+          const response = await generateAIChatResponse(chatSnapshot, personality);
+          if (!response) return;
+
+          // Add AI response to history too
+          history.push({ playerName: aiPlayer.name, message: response });
+          if (history.length > 20) history.shift();
+
+          io.to(gameId).emit(MessageType.CHAT_MESSAGE, {
+            playerId: aiPlayer.id,
+            playerName: aiPlayer.name,
+            message: response,
+            timestamp: Date.now(),
+            isAI: true
+          });
+
+          console.log(`[socket-handler] AI chat response from ${aiPlayer.name} (${personality}) in game ${gameId}`);
+        })();
+      } catch (error) {
+        console.error('[socket-handler] Error handling chat message:', error);
+      }
+    });
+
     /**
      * Handles disconnection of a client
      * @event disconnect

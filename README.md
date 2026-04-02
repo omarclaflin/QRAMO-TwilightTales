@@ -15,6 +15,10 @@ I'll add common hang-ups/issues the agents kept getting death-looped/stuck on he
 <img src="https://raw.githubusercontent.com/omarclaflin/QRAMO-TwilightTales/main/Screenshot_20260326_155328_Chrome.jpg" width="400"/>
 
 
+Now with chat...
+[screenshot](https://github.com/omarclaflin/QRAMO-TwilightTales/blob/main/Screenshot%202026-04-01%20at%2010.33.42%20PM.png)
+
+Older screenshots:
 [screenshot](https://github.com/omarclaflin/QRAMO-TwilightTales/blob/main/Screenshot%202025-05-19%20194513.png)
 [more screenshots](https://github.com/omarclaflin/QRAMO-TwilightTales/blob/main/Screenshot%202025-05-19%20194551.png)
 [so much screenshotting](https://github.com/omarclaflin/QRAMO-TwilightTales/blob/main/Screenshot%202025-05-19%20194450.png)

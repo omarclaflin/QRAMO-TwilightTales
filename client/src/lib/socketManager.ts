@@ -14,7 +14,8 @@ enum MessageType {
   LEAVE_GAME = 'leaveGame',
   GAME_STATE = 'gameState',
   ERROR = 'error',
-  MESSAGE = 'message'
+  MESSAGE = 'message',
+  CHAT_MESSAGE = 'chatMessage'
 }
 
 // Socket connection state

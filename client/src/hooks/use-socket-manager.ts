@@ -23,7 +23,8 @@ export enum MessageType {
   LEAVE_GAME = 'leaveGame',
   GAME_STATE = 'gameState',
   ERROR = 'error',
-  MESSAGE = 'message'
+  MESSAGE = 'message',
+  CHAT_MESSAGE = 'chatMessage'
 }
 
 /**
@@ -429,16 +430,30 @@ export function useSocketManager() {
   const updateCustomCard = useCallback(async (gameId: string, cardId: number, customText: string): Promise<SocketResponse> => {
     try {
       console.log(`[useSocketManager] Updating custom card ${cardId} in game ${gameId}`);
-      const response = await socketManager.emit<SocketResponse>(MessageType.UPDATE_CUSTOM_CARD, { 
-        gameId, 
-        cardId, 
-        customText 
+      const response = await socketManager.emit<SocketResponse>(MessageType.UPDATE_CUSTOM_CARD, {
+        gameId,
+        cardId,
+        customText
       });
-      
+
       console.log('[useSocketManager] Update custom card response:', response);
       return response;
     } catch (error) {
       console.error('[useSocketManager] Error updating custom card:', error);
+      throw error;
+    }
+  }, []);
+
+  /**
+   * Send a chat message to the game room
+   */
+  const sendChatMessage = useCallback(async (gameId: string, message: string): Promise<void> => {
+    try {
+      console.log(`[useSocketManager] Sending chat message in game ${gameId}`);
+      const socket = await socketManager.getSocket();
+      socket.emit(MessageType.CHAT_MESSAGE, { gameId, message });
+    } catch (error) {
+      console.error('[useSocketManager] Error sending chat message:', error);
       throw error;
     }
   }, []);
@@ -458,6 +473,7 @@ export function useSocketManager() {
     judgePick,
     nextRound,
     leaveGame,
+    sendChatMessage,
     connect,
     disconnect
   };
