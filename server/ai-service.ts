@@ -367,12 +367,13 @@ Key themes:`;
   }
 }
 
-const CHAT_SYSTEM_PROMPT = (personality: AIPersonality): string =>
-  `Add a response in the form of [RESPONSE:] to the current chatbox, as your character. Keep it very very brief. Then write another [QUICK RESPONSE:] which is way way more concise and succinct.\n\ncharacter: ${PERSONALITY_DESCRIPTIONS[personality]}\n\nRespond in EXACTLY this format, no other text:\nRESPONSE: [your brief response]\nQUICK RESPONSE: [your ultra-concise response]`;
+const CHAT_SYSTEM_PROMPT = (personality: AIPersonality, aiPlayerName: string): string =>
+  `Add a chatbox response in the form of [RESPONSE:] to the current chatbox, as your character. Keep it very very brief. Then write another [QUICK RESPONSE:] which is way way more concise and succinct.\n\ncharacter: Your name is ${aiPlayerName}. ${PERSONALITY_DESCRIPTIONS[personality]}\n\nRespond in EXACTLY this format, no other text:\nRESPONSE: [your brief response]\nQUICK RESPONSE: [your ultra-concise response]`;
 
 export async function generateAIChatResponse(
   chatHistory: string,
-  personality: AIPersonality
+  personality: AIPersonality,
+  aiPlayerName: string
 ): Promise<string | null> {
   try {
     if (!process.env.ANTHROPIC_API_KEY || !checkRateLimit()) {
@@ -383,8 +384,8 @@ export async function generateAIChatResponse(
       model: MODEL,
       max_tokens: 150,
       temperature: 0.9,
-      system: CHAT_SYSTEM_PROMPT(personality),
-      messages: [{ role: 'user', content: `chatbox:\n${chatHistory}` }],
+      system: CHAT_SYSTEM_PROMPT(personality, aiPlayerName),
+      messages: [{ role: 'user', content: `chatbox:\n${chatHistory}\n${aiPlayerName}:` }],
     });
 
     if (response.content[0].type !== 'text') return null;
@@ -396,8 +397,8 @@ export async function generateAIChatResponse(
     const full = responseMatch ? responseMatch[1].trim() : null;
     const quick = quickMatch ? quickMatch[1].trim() : null;
 
-    // 3/4 chance quick, 1/4 chance full
-    const useQuick = Math.random() < 3 / 4;
+    // 85% chance quick, 15% chance full
+    const useQuick = Math.random() < 0.85;
     if (useQuick && quick) return quick;
     if (full) return full;
     return quick;

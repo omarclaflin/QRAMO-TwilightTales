@@ -803,7 +803,7 @@ export function setupWebSocketServer(server: HttpServer) {
 
         // Generate and broadcast AI response asynchronously
         (async () => {
-          const response = await generateAIChatResponse(chatSnapshot, personality);
+          const response = await generateAIChatResponse(chatSnapshot, personality, aiPlayer.name);
           if (!response) return;
 
           // Add AI response to history too
