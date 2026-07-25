@@ -368,10 +368,10 @@ export function useSocketManager() {
   /**
    * Judge picks the winning moral
    */
-  const judgePick = useCallback(async (gameId: string, winnerId: string, reason: string): Promise<SocketResponse> => {
+  const judgePick = useCallback(async (gameId: string, winnerId: string, reason: string, secondId: string | null = null): Promise<SocketResponse> => {
     try {
-      console.log(`[useSocketManager] Judge picking winner ${winnerId} in game ${gameId}`);
-      const response = await socketManager.emit<SocketResponse>(MessageType.JUDGE_PICK, { gameId, winnerId, reason });
+      console.log(`[useSocketManager] Judge picking winner ${winnerId}${secondId ? `, runner-up ${secondId}` : ''} in game ${gameId}`);
+      const response = await socketManager.emit<SocketResponse>(MessageType.JUDGE_PICK, { gameId, winnerId, secondId, reason });
       
       console.log('[useSocketManager] Judge pick response:', response);
       return response;

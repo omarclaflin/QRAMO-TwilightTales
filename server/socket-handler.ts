@@ -462,7 +462,7 @@ export function setupWebSocketServer(server: HttpServer) {
     socket.on(MessageType.JUDGE_PICK, async (data, callback) => {
       console.log(`[socket-handler] BEGIN judge-pick for game ${data.gameId}`);
       try {
-        const { gameId, winnerId, reason } = data;
+        const { gameId, winnerId, secondId, reason } = data;
         
         if (!socket.playerData || socket.playerData.gameId !== gameId) {
           return callback({ success: false, error: 'Not authorized' });
@@ -481,13 +481,13 @@ export function setupWebSocketServer(server: HttpServer) {
           return callback({ success: false, error: 'Only the judge can pick the winner' });
         }
         
-        const success = gameStateManager.judgePickWinner(gameId, socket.playerData.playerId, winnerId, reason.trim());
+        const success = gameStateManager.judgePickWinner(gameId, socket.playerData.playerId, winnerId, reason.trim(), secondId ?? null);
         if (!success) {
           return callback({ success: false, error: 'Failed to pick winner' });
         }
         
         callback({ success: true });
-        console.log(`[socket-handler] Judge ${socket.playerData.playerId} picked winner ${winnerId} in game ${gameId}`);
+        console.log(`[socket-handler] Judge ${socket.playerData.playerId} picked winner ${winnerId}${secondId ? `, runner-up ${secondId}` : ''} in game ${gameId}`);
         broadcastGameState(gameId);
       } catch (error) {
         console.error('[socket-handler] Error in judge pick:', error);

@@ -58,6 +58,7 @@ const GamePage: React.FC = () => {
   
   // State for judge pick UI
   const [selectedWinnerId, setSelectedWinnerId] = useState<string | null>(null);
+  const [selectedSecondId, setSelectedSecondId] = useState<string | null>(null);
   const [judgeReason, setJudgeReason] = useState<string>('');
   
   const [winnerImage, setWinnerImage] = useState<string>("/assets/player/player_1.png");
@@ -107,6 +108,7 @@ const GamePage: React.FC = () => {
         isCurrentPlayerJudge: playerId === gameState.round.judgeId,
       });
       setSelectedWinnerId(null);
+      setSelectedSecondId(null);
       setJudgeReason('');
     }
   }, [gameState?.round.status, gameState?.round.number]);
@@ -167,7 +169,7 @@ const GamePage: React.FC = () => {
   // Handle judge pick submission
   const handleJudgePick = () => {
     if (selectedWinnerId && judgeReason.trim()) {
-      judgePick(selectedWinnerId, judgeReason.trim());
+      judgePick(selectedWinnerId, judgeReason.trim(), selectedSecondId);
     }
   };
   
@@ -181,6 +183,7 @@ const GamePage: React.FC = () => {
   const handleNextRound = () => {
     setLocalSelectedCardId(null);
     setSelectedWinnerId(null);
+    setSelectedSecondId(null);
     setJudgeReason('');
     setCardsRevealed(false);
     
@@ -597,35 +600,60 @@ const GamePage: React.FC = () => {
                 </Card>
                 
                 {playerId === gameState.round.judgeId ? (
+                  (() => {
+                    const eligibleSubmissions = gameState.round.submissions.filter(s => s.moral !== null);
+                    const canAwardSecond = eligibleSubmissions.length >= 2;
+                    const secondRequired = canAwardSecond;
+                    return (
                   <div className="space-y-4">
-                    <h4 className="text-base font-medium">Pick the winning moral:</h4>
+                    <h4 className="text-base font-medium">
+                      {canAwardSecond ? "Pick 1st place (+3) and 2nd place (+1):" : "Pick the winning moral (+3):"}
+                    </h4>
+                    <p className="text-xs text-muted-foreground">
+                      {canAwardSecond
+                        ? "Tap once for 1st place, then tap another for 2nd place. Tap again to deselect."
+                        : "Authors are hidden until the winner is revealed."}
+                    </p>
                     
                     <div className="grid grid-cols-1 gap-3">
-                      {gameState.round.submissions
-                        .filter(s => s.moral !== null)
-                        .map((submission) => {
-                          const player = gameState.players.find(p => p.id === submission.playerId);
-                          const isSelected = submission.playerId === selectedWinnerId;
-                          if (!player || !submission.moral) return null;
+                      {eligibleSubmissions
+                        .map((submission, index) => {
+                          const isFirst = submission.playerId === selectedWinnerId;
+                          const isSecond = submission.playerId === selectedSecondId;
+                          if (!submission.moral) return null;
                           
                           return (
                             <div 
                               key={submission.playerId}
                               className={cn(
                                 "p-4 rounded-lg border transition-all cursor-pointer",
-                                isSelected
+                                isFirst
                                   ? "bg-primary/5 border-2 border-primary shadow-md"
-                                  : "bg-background hover:bg-muted/20 border-muted/50 hover:shadow-sm"
+                                  : isSecond
+                                    ? "bg-amber-50 border-2 border-amber-400 shadow-sm"
+                                    : "bg-background hover:bg-muted/20 border-muted/50 hover:shadow-sm"
                               )}
-                              onClick={() => setSelectedWinnerId(submission.playerId)}
+                              onClick={() => {
+                                if (isFirst) {
+                                  setSelectedWinnerId(null);
+                                } else if (isSecond) {
+                                  setSelectedSecondId(null);
+                                } else if (!selectedWinnerId) {
+                                  setSelectedWinnerId(submission.playerId);
+                                } else if (!selectedSecondId && canAwardSecond) {
+                                  setSelectedSecondId(submission.playerId);
+                                }
+                              }}
                             >
                               <div className="flex justify-between items-center mb-2">
-                                <span className="font-medium text-sm">
-                                  {player.name}
-                                  {player.isAI && <Badge variant="outline" className="ml-2 text-xs bg-muted/30">AI</Badge>}
+                                <span className="font-medium text-sm text-muted-foreground">
+                                  Moral #{index + 1}
                                 </span>
-                                {isSelected && (
-                                  <Badge className="bg-primary text-primary-foreground">Selected</Badge>
+                                {isFirst && (
+                                  <Badge className="bg-primary text-primary-foreground">1st · +3</Badge>
+                                )}
+                                {isSecond && (
+                                  <Badge className="bg-amber-500 text-white">2nd · +1</Badge>
                                 )}
                               </div>
                               <p className="text-sm italic break-words whitespace-normal">"{submission.moral}"</p>
@@ -636,7 +664,7 @@ const GamePage: React.FC = () => {
                     
                     {selectedWinnerId && (
                       <div className="space-y-3 pt-2">
-                        <label className="text-sm font-medium">Why did you pick this one?</label>
+                        <label className="text-sm font-medium">Why did you pick your favorite?</label>
                         <textarea
                           className="w-full p-3 border rounded-lg text-sm resize-none focus:ring-2 focus:ring-primary/50 focus:outline-none"
                           rows={2}
@@ -645,26 +673,30 @@ const GamePage: React.FC = () => {
                           value={judgeReason}
                           onChange={(e) => setJudgeReason(e.target.value)}
                         />
+                        {secondRequired && !selectedSecondId && (
+                          <p className="text-xs text-amber-600">Pick a 2nd place moral to continue.</p>
+                        )}
                         <Button
                           className="bg-gradient-to-r from-primary to-primary/80"
-                          disabled={!judgeReason.trim()}
+                          disabled={!judgeReason.trim() || (secondRequired && !selectedSecondId)}
                           onClick={handleJudgePick}
                         >
-                          Confirm Winner
+                          Confirm Winners
                         </Button>
                       </div>
                     )}
                   </div>
+                    );
+                  })()
                 ) : (
                   <div className="space-y-3">
                     <h4 className="text-base font-medium">Submitted morals:</h4>
                     <div className="grid grid-cols-1 gap-3">
                       {gameState.round.submissions
                         .filter(s => s.moral !== null)
-                        .map((submission) => {
-                          const player = gameState.players.find(p => p.id === submission.playerId);
+                        .map((submission, index) => {
                           const isOwnMoral = submission.playerId === playerId;
-                          if (!player || !submission.moral) return null;
+                          if (!submission.moral) return null;
                           
                           return (
                             <div 
@@ -674,10 +706,9 @@ const GamePage: React.FC = () => {
                                 isOwnMoral && "border-primary/30 bg-primary/5"
                               )}
                             >
-                              <span className="font-medium text-sm">
-                                {player.name}
+                              <span className="font-medium text-sm text-muted-foreground">
+                                Moral #{index + 1}
                                 {isOwnMoral && <Badge variant="outline" className="ml-2 text-xs">You</Badge>}
-                                {player.isAI && <Badge variant="outline" className="ml-2 text-xs bg-muted/30">AI</Badge>}
                               </span>
                               <p className="text-sm italic break-words whitespace-normal mt-1">"{submission.moral}"</p>
                             </div>
@@ -753,10 +784,12 @@ const GamePage: React.FC = () => {
                   <div className="space-y-3">
                     {/* Show winner first, then the rest */}
                     {[...gameState.round.submissions]
-                      .sort((a, b) => (b.isWinner ? 1 : 0) - (a.isWinner ? 1 : 0))
+                      .sort((a, b) => (a.placement ?? 99) - (b.placement ?? 99))
                       .map((submission) => {
                         const player = gameState.players.find(p => p.id === submission.playerId);
                         const isOwnMoral = submission.playerId === playerId;
+                        const isFirst = submission.placement === 1;
+                        const isSecond = submission.placement === 2;
                         
                         if (!player || !submission.moral) return null;
                         
@@ -765,16 +798,22 @@ const GamePage: React.FC = () => {
                             key={submission.playerId}
                             className={cn(
                               "border overflow-hidden transition-all",
-                              submission.isWinner && "shadow-md border-primary/50",
-                              isOwnMoral && !submission.isWinner && "border-muted/80"
+                              isFirst && "shadow-md border-primary/50",
+                              isSecond && "shadow-sm border-amber-300",
+                              isOwnMoral && !isFirst && !isSecond && "border-muted/80"
                             )}
                           >
-                            {submission.isWinner && (
+                            {isFirst && (
                               <div className="bg-gradient-to-r from-primary/90 to-primary/70 text-white px-4 py-1 flex items-center">
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                                   <path fillRule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                                 </svg>
-                                <span className="text-sm font-medium">Winner — +1 point</span>
+                                <span className="text-sm font-medium">1st place — +3 points</span>
+                              </div>
+                            )}
+                            {isSecond && (
+                              <div className="bg-gradient-to-r from-amber-500/90 to-amber-400/70 text-white px-4 py-1 flex items-center">
+                                <span className="text-sm font-medium">2nd place — +1 point</span>
                               </div>
                             )}
                             <div className="p-4">

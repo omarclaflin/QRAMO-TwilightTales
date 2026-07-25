@@ -786,6 +786,7 @@ class GameStateManager {
         cardId: player.selectedCard || 0,
         moral: null,
         isWinner: false,
+        placement: null,
       }));
 
     console.log(`Assembled story for game ${game.gameId}: ${game.round.story}`);
@@ -1028,7 +1029,13 @@ class GameStateManager {
   /**
    * Judge picks the winning moral
    */
-  judgePickWinner(gameId: string, judgeId: string, winnerId: string, reason: string): boolean {
+  judgePickWinner(
+    gameId: string,
+    judgeId: string,
+    winnerId: string,
+    reason: string,
+    secondId: string | null = null,
+  ): boolean {
     const game = this.games.get(gameId);
     if (!game) {
       console.error(`[game-state-manager] Game not found: ${gameId}`);
@@ -1051,13 +1058,33 @@ class GameStateManager {
       return false;
     }
 
+    // Second place is only awarded when there are at least 2 submitted morals.
+    const submittedCount = game.round.submissions.filter((s) => s.moral !== null).length;
+    const canAwardSecond = submittedCount >= 2 && !!secondId && secondId !== winnerId;
+    const secondSubmission = canAwardSecond
+      ? game.round.submissions.find((s) => s.playerId === secondId && s.moral !== null)
+      : undefined;
+
     winnerSubmission.isWinner = true;
+    winnerSubmission.placement = 1;
     game.round.judgeReason = reason;
+
+    const FIRST_PLACE_POINTS = 3;
+    const SECOND_PLACE_POINTS = 1;
 
     const winner = game.players.find((p) => p.id === winnerId);
     if (winner) {
-      winner.score += 1;
-      console.log(`[game-state-manager] Player ${winner.name} wins round ${game.round.number}, score now ${winner.score}`);
+      winner.score += FIRST_PLACE_POINTS;
+      console.log(`[game-state-manager] Player ${winner.name} takes 1st in round ${game.round.number} (+${FIRST_PLACE_POINTS}), score now ${winner.score}`);
+    }
+
+    if (secondSubmission) {
+      secondSubmission.placement = 2;
+      const second = game.players.find((p) => p.id === secondId);
+      if (second) {
+        second.score += SECOND_PLACE_POINTS;
+        console.log(`[game-state-manager] Player ${second.name} takes 2nd in round ${game.round.number} (+${SECOND_PLACE_POINTS}), score now ${second.score}`);
+      }
     }
 
     game.round.status = roundStatus.RESULTS;
@@ -1093,7 +1120,7 @@ class GameStateManager {
     console.log(`[game-state-manager] AI judge ${judge.name} (${personality}) deliberating... (pool: ${preferHuman ? 'humans only' : 'all players'})`);
 
     const result = await generateAIJudgment(morals, personality, game.round.story);
-    return this.judgePickWinner(gameId, judge.id, result.winnerId, result.reason);
+    return this.judgePickWinner(gameId, judge.id, result.firstId, result.reason, result.secondId);
   }
 
   /**

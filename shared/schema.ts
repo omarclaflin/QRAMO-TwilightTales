@@ -57,6 +57,7 @@ export interface Submission {
   cardId: number;
   moral: string | null;
   isWinner: boolean;
+  placement: number | null; // 1 = first place (+3), 2 = second place (+1), null = neither
 }
 
 export interface Round {

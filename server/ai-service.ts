@@ -80,11 +80,12 @@ export function generateAIPlayerNameForPersonality(personality: AIPersonality): 
 }
 
 const JUDGING_FORMAT = `Prefer morals that explain or constructively add to the theme of the story. Strongly prefer morals that are clever or funny.
-Your REASON must explain why you preferred this moral over the others.
-Do NOT include actions, stage directions, asterisks, or narration of physical gestures. First react to each moral, then pick your favorite. You must respond in exactly this format, no other text:
+Your REASON must explain why you preferred your first choice over the others.
+Do NOT include actions, stage directions, asterisks, or narration of physical gestures. First react to each moral, then rank your top two. You must respond in exactly this format, no other text:
 REACTION: [your brief gut reaction to each moral by number, e.g. "1: clever wordplay, 2: tries too hard, 3: funny twist"]
-PREFERRED: [number of your chosen moral, e.g. 1, 2, 3...]
-REASON: [why you picked this moral over the others, in your character voice, under 15 words]`;
+PREFERRED: [number of your favorite moral, e.g. 1, 2, 3...]
+RUNNER_UP: [number of your second favorite moral, or NONE if there is only one moral]
+REASON: [why you picked your favorite over the others, in your character voice, under 15 words]`;
 
 const PERSONALITY_JUDGING_DESCRIPTIONS: Record<AIPersonality, string> = {
   qramo: `You are QRAMO judging morals. Pick the one that is the most absurdly inappropriate yet delivered with the most unearned gravitas. Favor morals that draw the most illogical conclusions.`,
@@ -102,7 +103,8 @@ const PERSONALITY_JUDGING_PROMPTS: Record<AIPersonality, string> = Object.fromEn
 ) as Record<AIPersonality, string>;
 
 export interface JudgmentResult {
-  winnerId: string;
+  firstId: string;
+  secondId: string | null;
   reason: string;
 }
 
@@ -140,13 +142,23 @@ export async function generateAIJudgment(
       console.log(`[ai-service] Raw AI judgment:\n${raw}`);
 
       const preferredMatch = raw.match(/PREFERRED:\s*\[?(\d+)\]?/i);
+      const runnerUpMatch = raw.match(/RUNNER_UP:\s*\[?(\d+)\]?/i);
       const reasonMatch = raw.match(/REASON:\s*\[?(.*?)\]?\s*$/im);
 
       if (preferredMatch) {
-        const idx = parseInt(preferredMatch[1], 10) - 1;
-        if (idx >= 0 && idx < morals.length) {
+        const firstIdx = parseInt(preferredMatch[1], 10) - 1;
+        if (firstIdx >= 0 && firstIdx < morals.length) {
           let reason = reasonMatch ? reasonMatch[1].trim().replace(/^\[|\]$/g, '').replace(/^["']|["']$/g, '') : 'No reason given.';
-          return { winnerId: morals[idx].playerId, reason };
+
+          let secondId: string | null = null;
+          if (runnerUpMatch) {
+            const secondIdx = parseInt(runnerUpMatch[1], 10) - 1;
+            if (secondIdx >= 0 && secondIdx < morals.length && secondIdx !== firstIdx) {
+              secondId = morals[secondIdx].playerId;
+            }
+          }
+
+          return { firstId: morals[firstIdx].playerId, secondId, reason };
         }
       }
     }
@@ -160,8 +172,14 @@ export async function generateAIJudgment(
 }
 
 function fallbackJudgment(morals: { playerId: string; moral: string }[]): JudgmentResult {
-  const idx = Math.floor(Math.random() * morals.length);
-  return { winnerId: morals[idx].playerId, reason: 'The judge deliberated in mysterious silence.' };
+  const firstIdx = Math.floor(Math.random() * morals.length);
+  let secondId: string | null = null;
+  if (morals.length >= 2) {
+    let secondIdx = Math.floor(Math.random() * morals.length);
+    if (secondIdx === firstIdx) secondIdx = (secondIdx + 1) % morals.length;
+    secondId = morals[secondIdx].playerId;
+  }
+  return { firstId: morals[firstIdx].playerId, secondId, reason: 'The judge deliberated in mysterious silence.' };
 }
 
 // Track API calls to avoid rate limits

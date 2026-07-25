@@ -170,11 +170,11 @@ export const useGameState = (props?: UseGameStateProps) => {
    * @param winnerId - ID of the winning player
    * @param reason - Judge's reason for picking this moral
    */
-  const judgePick = useCallback(async (winnerId: string, reason: string) => {
+  const judgePick = useCallback(async (winnerId: string, reason: string, secondId: string | null = null) => {
     if (!gameState || !playerId) return;
     
     try {
-      await socketJudgePick(gameState.gameId, winnerId, reason);
+      await socketJudgePick(gameState.gameId, winnerId, reason, secondId);
     } catch (error) {
       console.error('Error in judge pick:', error);
     }
